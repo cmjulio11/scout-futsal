@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import subprocess
 import base64
+import glob
 from datetime import datetime
 from typing import Dict, Any, Optional
 
@@ -23,6 +24,13 @@ def encontrar_executavel_navegador() -> Optional[str]:
         shutil.which("chrome"),
         shutil.which("msedge"),
     ]
+
+    # Adiciona caminhos do Chromium instalado via Playwright no Linux e Windows
+    for pw_chrome in glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-linux/chrome")):
+        candidatos.append(pw_chrome)
+    for pw_chrome in glob.glob(os.path.expanduser("~/AppData/Local/ms-playwright/chromium-*/chrome-win/chrome.exe")):
+        candidatos.append(pw_chrome)
+
     for c in candidatos:
         if c and os.path.exists(c):
             return c
