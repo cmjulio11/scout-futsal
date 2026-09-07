@@ -1,0 +1,618 @@
+[
+  {
+    "src": "/assets/website/images/escudo/dea0b2fa7d6da9d8ddcf1ba68c58117c.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Paulista",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/f5dfc402d1903a741764286d12e561c4.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Copa ACC",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/1c06fa471cd9bd6cfc30f522916c54e3.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Paulista Iniciação A1",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/158dace1146ed9ea8e18032ef85b93e5.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Paulista Iniciação A2",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/158dace1146ed9ea8e18032ef85b93e5.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Paulista Iniciação A3",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/f3c80ee15e48427605bea33725a93892.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Paulista Base A1",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/45e9c4ab1a645f5999497a607cd7484c.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Paulista Base A2",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/b6ae2551a707e0ea577b0f3c17e67d35.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Paulista Base A3",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/ec6fc1b9145f94e1ac661eb861fc2940.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Copa União de Clubes",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/f22e6ebf76d5244698158893e1a90d67.png",
+    "alt": "",
+    "title": "",
+    "parent_text": "Torneio União Iniciação A3",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/adsantoandre.png",
+    "alt": "AD SANTO ANDRÉ",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/adsuzano.png",
+    "alt": "AD SUZANO",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/adef.png",
+    "alt": "ADEF",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/astros.png",
+    "alt": "ASTROS INDIANO",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/atibaia.png",
+    "alt": "ATIBAIA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/audax.png",
+    "alt": "AUDAX",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/batalha.png",
+    "alt": "BATALHA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/batebola.png",
+    "alt": "BATEBOLA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/bolanope2.png",
+    "alt": "BOLA NO PÉ",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/bonsdebola2026.png",
+    "alt": "BONS DE BOLA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/c13.png",
+    "alt": "C13",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/caypiranga.png",
+    "alt": "CA YPIRANGA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/caas.png",
+    "alt": "CAAS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/sercaieiras.png",
+    "alt": "CAIEIRAS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/camisa10.png",
+    "alt": "CAMISA 10",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/camisa10b.png",
+    "alt": "CAMISA 10 B",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/tatui1.png",
+    "alt": "CC TATUI",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/cfaf.png",
+    "alt": "CFAF",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/chutefutsal.png",
+    "alt": "CHUTE FUTSAL",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/logocompany.png",
+    "alt": "COMPANY SPORTS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/corinthians.png",
+    "alt": "CORINTHIANS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/bolanope.png",
+    "alt": "CT BOLA NO PÉ",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/ctcema.png",
+    "alt": "CTC VILA EMA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/ecitaquerense.png",
+    "alt": "EC ITAQUERENSE",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/flamengogru.png",
+    "alt": "FLAMENGO GRU",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/friburgo.png",
+    "alt": "FRIBURGO",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/ESCUDO_DOS_TIMES_2025.png",
+    "alt": "FÚRIA FS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/gremetal.png",
+    "alt": "GREMETAL",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/guaianazes.png",
+    "alt": "GUAIANAZES",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/guarulhense.png",
+    "alt": "GUARULHENSE",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/hortolandia.png",
+    "alt": "HORTOLÂNDIA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/hortolandiab.png",
+    "alt": "HORTOLâNDIA B",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/indaiatuba.png",
+    "alt": "INDAIATUBA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/itapevi.png",
+    "alt": "ITAPEVI",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/jabaquaraac.png",
+    "alt": "JABAQUARA AC",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/juventus.png",
+    "alt": "JUVENTUS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/kgb.png",
+    "alt": "KGB UBERTC",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/lausanne.png",
+    "alt": "LAUSANNE PAULISTA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/ESCUDO_DOS_TIMES_2026.png",
+    "alt": "LIGA SÃO CAETANO",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/lorena.png",
+    "alt": "LORENA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/amagn2.png",
+    "alt": "MAGNUS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/marvel.png",
+    "alt": "MARVEL",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/mercedez.png",
+    "alt": "MERCEDES BENZ",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/mesc.png",
+    "alt": "MESC",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/metalurgicos.png",
+    "alt": "METALÚRGICOS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/mogidascruzes.png",
+    "alt": "MOGI DAS CRUZES",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/mx7.png",
+    "alt": "MX7",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/nacional.png",
+    "alt": "NACIONAL",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/nandograna.png",
+    "alt": "NANDO GRANA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/napole.png",
+    "alt": "NAPOLE",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/ocian.png",
+    "alt": "OCIAN PRAIA CLUBE",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/olimpik.png",
+    "alt": "OLIMPIK",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/palmeiras.png",
+    "alt": "PALMEIRAS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/paulinense.png",
+    "alt": "PAULINENSE",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/paulistamooca.png",
+    "alt": "PAULISTA DA MOOCA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/Logo_Copa_ACC_(3).png",
+    "alt": "PEQUENINOS FC",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/pontodeencontro.png",
+    "alt": "PONTO DE ENCONT.",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/portuguesa.png",
+    "alt": "PORTUGUESA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/pulofutsal.png",
+    "alt": "PULO FUTSAL",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/pumas.png",
+    "alt": "PUMAS VALINHOS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/r7futsal.png",
+    "alt": "R7 FUTSAL",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/raposasdaleste.png",
+    "alt": "RAPOSAS DA LESTE",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/Logo_Copa_ACC_(2).png",
+    "alt": "RESILIENCE FUTSAL",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/riverdobelem.png",
+    "alt": "RIVER DO BELÉM",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/rosanegra.png",
+    "alt": "ROSA NEGRA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/rsfc.png",
+    "alt": "RSFC",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/rsoccer.png",
+    "alt": "RSOCCER CFA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/safc.png",
+    "alt": "SANTO ANDRÉ",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/santos.png",
+    "alt": "SANTOS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/saopaulo.png",
+    "alt": "SÃO PAULO",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/setedesetembro.png",
+    "alt": "SETE DE SETEMBRO",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/sportbenfica.png",
+    "alt": "SPORT BENFICA",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/taboaof9.png",
+    "alt": "TABOÃO F9",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/tabucajuniors.png",
+    "alt": "TABUCA JUNIORS",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/taubate.png",
+    "alt": "TAUBATÉ",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/uniaomaua.png",
+    "alt": "UNIÃO MAUÁ",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/uniaord.png",
+    "alt": "UNIÃO RD",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  },
+  {
+    "src": "/assets/website/images/escudo/wimpro.png",
+    "alt": "WIMPRO",
+    "title": "",
+    "parent_text": "",
+    "parent_tag": "a"
+  }
+]

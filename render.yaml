@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: scout-futsal
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: cm.julio@gmail.com
+      - key: ADMIN_PASSWORD
+        value: Pickup@98
+      - key: ADMIN_NOME
+        value: Administrador
+      - key: ALLOWED_ORIGINS
+        value: "*"

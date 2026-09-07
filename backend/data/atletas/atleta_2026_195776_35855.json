@@ -1,0 +1,28 @@
+[
+  {
+    "nome": "LUIGI VASSOLERI MARTINS",
+    "foto": "35c78c054b23d90635d5baaa7d5cffcaFoto-Luigi.jpeg",
+    "id_jogo": 141542,
+    "id_usuario": null,
+    "id_chave": 11617,
+    "id_ginasio": 100,
+    "id_fantasia1": 12350,
+    "id_fantasia2": 12225,
+    "id_clube1": 100499,
+    "id_clube2": 100052,
+    "gols1": 1,
+    "gols2": 9,
+    "turno": "T",
+    "rodada": 6,
+    "dt_jogo": "2026-08-29",
+    "hora_jogo": "16:30:00",
+    "prorrogacao": "N",
+    "resultado_final": "2",
+    "sumula": "5",
+    "atualizado": 1,
+    "id_fase": 35855,
+    "id_atleta": 195776,
+    "id_categoria": 3,
+    "gols": 1
+  }
+]

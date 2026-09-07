@@ -1,0 +1,28 @@
+[
+  {
+    "nome": "LORENZO ROMERO PERICO DA SILVA ",
+    "foto": "a70ef9488e4a9070e7dbddba7c12bf7fFOTO.png",
+    "id_jogo": 141167,
+    "id_usuario": null,
+    "id_chave": 11615,
+    "id_ginasio": 402,
+    "id_fantasia1": 12364,
+    "id_fantasia2": 12348,
+    "id_clube1": 100390,
+    "id_clube2": 100499,
+    "gols1": 4,
+    "gols2": 6,
+    "turno": "T",
+    "rodada": 21,
+    "dt_jogo": "2026-04-19",
+    "hora_jogo": "08:30:00",
+    "prorrogacao": "N",
+    "resultado_final": "2",
+    "sumula": "5",
+    "atualizado": 1,
+    "id_fase": 35853,
+    "id_atleta": 215549,
+    "id_categoria": 1,
+    "gols": 1
+  }
+]

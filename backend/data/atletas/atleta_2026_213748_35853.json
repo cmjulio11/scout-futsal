@@ -1,0 +1,28 @@
+[
+  {
+    "nome": "DAVI DELACQUA MONTEIRO",
+    "foto": "418495ea2f181c3bac6e8fb6605a4133foto.jpeg",
+    "id_jogo": 141122,
+    "id_usuario": null,
+    "id_chave": 11615,
+    "id_ginasio": 562,
+    "id_fantasia1": 12223,
+    "id_fantasia2": 12215,
+    "id_clube1": 100052,
+    "id_clube2": 100361,
+    "gols1": 4,
+    "gols2": 0,
+    "turno": "T",
+    "rodada": 17,
+    "dt_jogo": "2026-08-08",
+    "hora_jogo": "08:30:00",
+    "prorrogacao": "N",
+    "resultado_final": "1",
+    "sumula": "5",
+    "atualizado": 1,
+    "id_fase": 35853,
+    "id_atleta": 213748,
+    "id_categoria": 1,
+    "gols": 1
+  }
+]

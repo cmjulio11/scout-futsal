@@ -1,0 +1,28 @@
+[
+  {
+    "nome": "MATTEO DEGROSSOLI PEREIRA",
+    "foto": "fdcff974749c43ea823f91f8366b59b81.jpeg",
+    "id_jogo": 141105,
+    "id_usuario": null,
+    "id_chave": 11615,
+    "id_ginasio": 19,
+    "id_fantasia1": 12364,
+    "id_fantasia2": 12223,
+    "id_clube1": 100390,
+    "id_clube2": 100052,
+    "gols1": 2,
+    "gols2": 5,
+    "turno": "T",
+    "rodada": 16,
+    "dt_jogo": "2026-03-22",
+    "hora_jogo": "08:30:00",
+    "prorrogacao": "N",
+    "resultado_final": "2",
+    "sumula": "5",
+    "atualizado": 1,
+    "id_fase": 35853,
+    "id_atleta": 213957,
+    "id_categoria": 1,
+    "gols": 1
+  }
+]

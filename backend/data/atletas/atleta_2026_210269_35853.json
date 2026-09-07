@@ -1,0 +1,28 @@
+[
+  {
+    "nome": "MIGUEL FERREIRA BARBOSA",
+    "foto": "aeda69a90fe46e2b49b56a6ae1902efcMIGUELBARBOSA-FOTOPERFIL25-sub07.jpeg",
+    "id_jogo": 140950,
+    "id_usuario": null,
+    "id_chave": 11615,
+    "id_ginasio": 294,
+    "id_fantasia1": 12373,
+    "id_fantasia2": 12287,
+    "id_clube1": 100440,
+    "id_clube2": 100412,
+    "gols1": 0,
+    "gols2": 2,
+    "turno": "T",
+    "rodada": 3,
+    "dt_jogo": "2026-05-30",
+    "hora_jogo": "14:30:00",
+    "prorrogacao": "N",
+    "resultado_final": "2",
+    "sumula": "5",
+    "atualizado": 1,
+    "id_fase": 35853,
+    "id_atleta": 210269,
+    "id_categoria": 1,
+    "gols": 1
+  }
+]

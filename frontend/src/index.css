@@ -1,0 +1,377 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #0a0f1e;
+  }
+}
+
+/* Regras de Impressão & Exportação PDF (A4) */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 6mm 6mm;
+  }
+
+  /* Forçar fundo 100% branco no documento sem fundos escuros */
+  html,
+  body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: auto !important;
+    height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Desativar min-height de 100vh e fundos escuros da casca da aplicação (sem mascarar o conteúdo) */
+  .min-h-screen,
+  #root,
+  #root > div {
+    min-height: auto !important;
+    height: auto !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    display: block !important;
+  }
+
+  /* Ocultar elementos normais da aplicação (Sidebar, toasts do react-hot-toast, cabeçalho web, rodapé) */
+  .no-print,
+  .no-print *,
+  aside,
+  header,
+  nav,
+  footer,
+  [data-rht-toaster],
+  [data-rht-toaster] * {
+    display: none !important;
+  }
+
+  /* Se o modal do Atleta ou o Dossiê estiver aberto, ocultar toda a página que está atrás */
+  body.printing-atleta-modal main,
+  body.printing-atleta-modal #campeonatos-main,
+  body.printing-atleta-modal #scout-page-main,
+  body.printing-atleta-modal #dashboard-main,
+  body:has(.atleta-modal-backdrop) main,
+  body:has(.atleta-modal-backdrop) #campeonatos-main,
+  body:has(.atleta-modal-backdrop) #scout-page-main,
+  body:has(.atleta-modal-backdrop) #dashboard-main,
+  body:has(.atleta-modal-backdrop) footer,
+  body:has(.print-modal-backdrop) main,
+  body:has(.print-modal-backdrop) #campeonatos-main,
+  body:has(.print-modal-backdrop) #scout-page-main,
+  body:has(.print-modal-backdrop) #dashboard-main,
+  body:has(.print-modal-backdrop) footer {
+    display: none !important;
+  }
+
+  /* ========================================================================= */
+  /* 1. DOSSIÊ TÁTICO DE CONFRONTO (ScoutPage) */
+  /* ========================================================================= */
+  .print-modal-backdrop {
+    position: static !important;
+    inset: auto !important;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .print-scroll-container {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .print-sheet {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  .print-sheet div,
+  .print-sheet table,
+  .print-sheet tr,
+  .print-sheet td,
+  .print-sheet span {
+    color: #0f172a !important;
+  }
+
+  .print-sheet .bg-slate-900,
+  .print-sheet .bg-slate-950,
+  .print-sheet .bg-slate-900\/80,
+  .print-sheet .bg-slate-900\/50,
+  .print-sheet .bg-slate-950\/70,
+  .print-sheet .bg-slate-800 {
+    background-color: #f8fafc !important;
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+
+  /* ========================================================================= */
+  /* 2. FICHA TÉCNICA INDIVIDUAL DO ATLETA (AtletaModal) */
+  /* ========================================================================= */
+  .atleta-modal-backdrop {
+    position: static !important;
+    inset: auto !important;
+    background-color: transparent !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .atleta-modal-sheet {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+
+  .atleta-modal-sheet * {
+    color: #0f172a !important;
+  }
+
+  .atleta-modal-sheet div,
+  .atleta-modal-sheet section {
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Converter todos os elementos e spans escuros do modal em fundos claros e econômicos */
+  .atleta-modal-sheet .bg-slate-900,
+  .atleta-modal-sheet .bg-slate-950,
+  .atleta-modal-sheet .bg-slate-950\/70,
+  .atleta-modal-sheet .bg-slate-950\/60,
+  .atleta-modal-sheet .bg-slate-950\/40,
+  .atleta-modal-sheet .bg-slate-900\/80,
+  .atleta-modal-sheet .bg-slate-900\/50,
+  .atleta-modal-sheet .bg-slate-800,
+  .atleta-modal-sheet .bg-slate-800\/90,
+  .atleta-modal-sheet .bg-slate-800\/80,
+  .atleta-modal-sheet .bg-slate-800\/60 {
+    background-color: #f8fafc !important;
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+
+  /* O placar (span com font-mono e bg-slate-900) fica com fundo cinza claro e borda nítida sem virar caixa preta */
+  .atleta-modal-sheet span.font-mono,
+  .atleta-modal-sheet .font-mono,
+  .atleta-modal-sheet span.bg-slate-900 {
+    background-color: #f1f5f9 !important;
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+
+  /* Badges de destaque em impressão */
+  .atleta-modal-sheet .bg-blue-600\/20,
+  .atleta-modal-sheet .bg-blue-600\/15,
+  .atleta-modal-sheet .bg-blue-500\/10 {
+    background-color: #eff6ff !important;
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border-color: #bfdbfe !important;
+  }
+
+  .atleta-modal-sheet .bg-rose-500\/15 {
+    background-color: #fff1f2 !important;
+    background: #fff1f2 !important;
+    color: #be123c !important;
+    border-color: #fecdd3 !important;
+  }
+
+  .atleta-modal-sheet .bg-amber-400 {
+    background-color: #fef3c7 !important;
+    background: #fef3c7 !important;
+    color: #92400e !important;
+    border-color: #fde68a !important;
+  }
+
+  .atleta-modal-sheet .text-slate-400,
+  .atleta-modal-sheet .text-slate-500 {
+    color: #64748b !important;
+  }
+
+  .atleta-modal-sheet .text-blue-400,
+  .atleta-modal-sheet .text-blue-500 {
+    color: #2563eb !important;
+  }
+
+  .atleta-modal-sheet .text-amber-400,
+  .atleta-modal-sheet .text-amber-500 {
+    color: #d97706 !important;
+  }
+
+  .atleta-modal-sheet .text-rose-400,
+  .atleta-modal-sheet .text-rose-500 {
+    color: #e11d48 !important;
+  }
+
+  /* ========================================================================= */
+  /* 3. PÁGINA DE CAMPEONATOS (Torneio União, Classificação, Artilharia, Jogos) */
+  /* ========================================================================= */
+  #campeonatos-main {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  #campeonatos-main * {
+    color: #0f172a !important;
+  }
+
+  /* Transformar containers escuros em caixas brancas limpas */
+  #campeonatos-main .bg-slate-900,
+  #campeonatos-main .bg-slate-950,
+  #campeonatos-main .bg-slate-900\/90,
+  #campeonatos-main .bg-slate-900\/80,
+  #campeonatos-main .bg-slate-900\/60,
+  #campeonatos-main .bg-slate-900\/50,
+  #campeonatos-main .bg-slate-900\/40,
+  #campeonatos-main .bg-slate-950\/80,
+  #campeonatos-main .bg-slate-950\/70,
+  #campeonatos-main .bg-slate-950\/60,
+  #campeonatos-main .bg-slate-950\/40,
+  #campeonatos-main .bg-slate-800,
+  #campeonatos-main .bg-slate-800\/90,
+  #campeonatos-main .bg-slate-800\/60,
+  #campeonatos-main .bg-slate-800\/50,
+  #campeonatos-main .bg-slate-800\/40,
+  #campeonatos-main .bg-slate-800\/30,
+  #campeonatos-main .bg-blue-950\/30,
+  #campeonatos-main .bg-blue-500\/10,
+  #campeonatos-main .bg-blue-500\/5 {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Desativar colunas fixas / sticky para não sobrepor na folha de papel */
+  #campeonatos-main table th,
+  #campeonatos-main table td {
+    position: static !important;
+    left: auto !important;
+    box-shadow: none !important;
+  }
+
+  #campeonatos-main table {
+    width: 100% !important;
+    min-width: 100% !important;
+    background: #ffffff !important;
+    border-collapse: collapse !important;
+  }
+
+  #campeonatos-main thead tr,
+  #campeonatos-main thead th {
+    background-color: #f1f5f9 !important;
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    font-weight: 800 !important;
+  }
+
+  #campeonatos-main tbody tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+  }
+
+  #campeonatos-main tbody td {
+    color: #0f172a !important;
+  }
+
+  /* Cores de destaque legíveis na impressão */
+  #campeonatos-main .text-blue-400,
+  #campeonatos-main .text-blue-500 {
+    color: #1d4ed8 !important;
+  }
+
+  #campeonatos-main .text-amber-400,
+  #campeonatos-main .text-amber-500 {
+    color: #b45309 !important;
+  }
+
+  #campeonatos-main .text-rose-400,
+  #campeonatos-main .text-rose-500 {
+    color: #be123c !important;
+  }
+
+  #campeonatos-main .text-slate-400,
+  #campeonatos-main .text-slate-500 {
+    color: #64748b !important;
+  }
+
+  /* Badges de Chaves Econômicos para Impressão */
+  #campeonatos-main span:has(> svg) {
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #1e293b !important;
+  }
+
+  /* Permitir paginação fluida das tabelas sem cortes de scroll */
+  #campeonatos-main .overflow-x-auto,
+  #campeonatos-main .overflow-hidden,
+  #campeonatos-main .rounded-2xl {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Evitar quebra no meio de linhas individuais da tabela */
+  .avoid-break,
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
