@@ -356,8 +356,10 @@ export default function PlayoffsPage() {
   const campeao = campeaoChave[chaveAtiva] || null;
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100 font-sans">
-      <Sidebar />
+    <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row text-slate-100 font-sans">
+      <div className="no-print">
+        <Sidebar />
+      </div>
 
       <main className="flex-1 flex flex-col min-w-0">
         <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">

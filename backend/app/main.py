@@ -83,6 +83,38 @@ def criar_admin_inicial():
             existe.ativo = True
             db.commit()
             print(f'[INIT] Administrador atualizado e ativo: {admin_email}')
+
+        # Garante usuários de comissão técnica padrão (Pulo Campinas e Palmeiras)
+        usuarios_padrao = [
+            {
+                'nome': 'Pulo',
+                'email': 'pulo@pulofc.com.br',
+                'senha': admin_password,
+                'perfil': models.Perfil.comissao_tecnica,
+                'clube': 'PULO CAMPINAS',
+            },
+            {
+                'nome': 'Vinicius',
+                'email': 'palmeiras@palmeiras.com.br',
+                'senha': admin_password,
+                'perfil': models.Perfil.comissao_tecnica,
+                'clube': 'PALMEIRAS',
+            },
+        ]
+        for u in usuarios_padrao:
+            u_existe = db.query(models.Usuario).filter(models.Usuario.email == u['email']).first()
+            if not u_existe:
+                novo_u = models.Usuario(
+                    nome=u['nome'],
+                    email=u['email'],
+                    senha_hash=hash_senha(u['senha']),
+                    perfil=u['perfil'],
+                    clube=u['clube'],
+                    ativo=True,
+                )
+                db.add(novo_u)
+                db.commit()
+                print(f"[INIT] Usuário de comissão técnica criado: {u['email']} ({u['clube']})")
     finally:
         db.close()
 

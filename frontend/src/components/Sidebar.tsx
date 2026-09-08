@@ -19,6 +19,8 @@ import {
   Building2,
   RefreshCw,
   Swords,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const menuItems = [
@@ -36,6 +38,35 @@ export default function Sidebar() {
   const [clubes, setClubes] = useState<ScoutClubeItem[]>([]);
   const [syncInfo, setSyncInfo] = useState<SyncStatusResponse | null>(null);
   const [disparandoSync, setDisparandoSync] = useState(false);
+
+  // Estado da barra lateral no Desktop / Tablet (Recuo Manual com Setinha / Automático para Telas Menores)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('scout_sidebar_collapsed');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+      // Se a tela for tablet ou celular em modo paisagem (< 1024px), inicia recolhido para priorizar espaço
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
+
+  const toggleSidebar = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('scout_sidebar_collapsed', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const carregarSyncStatus = async () => {
     try {
@@ -381,17 +412,72 @@ export default function Sidebar() {
       </nav>
 
       {/* ========================================================================= */}
-      {/* 4. SIDEBAR DESKTOP TRADICIONAL (Aparece a partir de md:) */}
+      {/* 4. SIDEBAR DESKTOP / TABLET RETRÁTIL (Aparece a partir de md:) */}
       {/* ========================================================================= */}
-      <aside className="hidden md:flex w-64 min-h-screen bg-slate-900 border-r border-slate-800 flex-col shrink-0">
+      <aside
+        className={`hidden md:flex flex-col shrink-0 min-h-screen bg-slate-900 border-r border-slate-800 transition-all duration-300 ease-in-out relative ${
+          isCollapsed ? 'w-16' : 'w-64'
+        }`}
+      >
         {/* Brand Header */}
-        <div className="p-5 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="relative shrink-0">
+        {!isCollapsed ? (
+          <div className="p-4 border-b border-slate-800">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="relative shrink-0">
+                  <img
+                    src={clubeInfo?.escudo_url || usuario?.clube_escudo_url || '/fpfs_shield.png'}
+                    alt="Brasão"
+                    className="w-9 h-9 object-contain drop-shadow"
+                    onError={(e) => {
+                      e.currentTarget.src = '/fpfs_shield.png';
+                    }}
+                  />
+                  {clubeInfo && (
+                    <img
+                      src="/fpfs_shield.png"
+                      alt="FPFS"
+                      className="w-3.5 h-3.5 object-contain absolute -bottom-1 -right-1 drop-shadow"
+                    />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white font-bold text-sm tracking-tight leading-tight truncate">
+                    {clubeInfo?.nome || 'Futsal Scout'}
+                  </p>
+                  <p className="text-blue-400 text-xs font-semibold truncate">
+                    {clubeInfo ? 'Série A1 • Iniciação' : 'FPFS • Iniciação'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Botão de Recolher com Setinha */}
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
+                title="Recolher menu lateral (ganhar tela cheia)"
+                aria-label="Recolher menu lateral"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Badge de Clube Vinculado do Usuário */}
+            {usuario?.clube && (
+              <div className="mt-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-950/40 border border-blue-800/40 text-[11px] text-blue-300">
+                <Building2 className="w-3 h-3 text-blue-400 shrink-0" />
+                <span className="font-semibold truncate">Clube: {usuario.clube}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-3 border-b border-slate-800 flex flex-col items-center gap-2">
+            <div className="relative shrink-0" title={clubeInfo?.nome || 'Futsal Scout'}>
               <img
                 src={clubeInfo?.escudo_url || usuario?.clube_escudo_url || '/fpfs_shield.png'}
                 alt="Brasão"
-                className="w-10 h-10 object-contain drop-shadow"
+                className="w-8 h-8 object-contain drop-shadow"
                 onError={(e) => {
                   e.currentTarget.src = '/fpfs_shield.png';
                 }}
@@ -400,71 +486,81 @@ export default function Sidebar() {
                 <img
                   src="/fpfs_shield.png"
                   alt="FPFS"
-                  className="w-4 h-4 object-contain absolute -bottom-1 -right-1 drop-shadow"
+                  className="w-3 h-3 object-contain absolute -bottom-1 -right-1 drop-shadow"
                 />
               )}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-white font-bold text-sm tracking-tight leading-tight truncate">
-                {clubeInfo?.nome || 'Futsal Scout'}
-              </p>
-              <p className="text-blue-400 text-xs font-semibold truncate">
-                {clubeInfo ? 'Série A1 • Iniciação' : 'FPFS • Iniciação'}
-              </p>
-            </div>
-          </div>
-
-          {/* Badge de Clube Vinculado do Usuário */}
-          {usuario?.clube && (
-            <div className="mt-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-950/40 border border-blue-800/40 text-[11px] text-blue-300">
-              <Building2 className="w-3 h-3 text-blue-400 shrink-0" />
-              <span className="font-semibold truncate">Clube: {usuario.clube}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Simulador Comercial para Administrador (Demonstração para Clientes) */}
-        {isAdmin && (
-          <div className="px-3 pt-3">
-            <div className="p-2.5 rounded-xl bg-slate-800/70 border border-slate-700/80 space-y-1.5">
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
-                <span className="flex items-center gap-1 text-amber-400">
-                  <Sparkles className="w-3 h-3" /> Simular Clube
-                </span>
-                {clubeAtivo && (
-                  <button
-                    onClick={() => setClubeAtivo(null)}
-                    className="text-slate-400 hover:text-rose-400 text-[10px] underline cursor-pointer"
-                    title="Voltar à visão neutra / geral"
-                  >
-                    Resetar
-                  </button>
-                )}
-              </div>
-              <select
-                value={clubeAtivo || ''}
-                onChange={(e) => setClubeAtivo(e.target.value || null)}
-                className="w-full bg-slate-900 border border-slate-700 text-white text-xs font-semibold rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
-                title="Selecione um clube para visualizar o sistema como ele veria"
-              >
-                <option value="">Visão Geral (Todos os Clubes)</option>
-                {clubes.map((c) => (
-                  <option key={c.nome} value={c.nome}>
-                    {c.nome}
-                  </option>
-                ))}
-              </select>
-              {clubeAtivo && (
-                <p className="text-[10px] text-amber-400/90 font-medium leading-tight">
-                  👁️ Visualizando como <strong>{clubeAtivo}</strong>
-                </p>
-              )}
-            </div>
+            {/* Botão de Expandir com Setinha */}
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              title="Expandir menu lateral"
+              aria-label="Expandir menu lateral"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         )}
 
+        {/* Simulador Comercial para Administrador */}
+        {isAdmin && (
+          !isCollapsed ? (
+            <div className="px-3 pt-3">
+              <div className="p-2.5 rounded-xl bg-slate-800/70 border border-slate-700/80 space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
+                  <span className="flex items-center gap-1 text-amber-400">
+                    <Sparkles className="w-3 h-3" /> Simular Clube
+                  </span>
+                  {clubeAtivo && (
+                    <button
+                      onClick={() => setClubeAtivo(null)}
+                      className="text-slate-400 hover:text-rose-400 text-[10px] underline cursor-pointer"
+                      title="Voltar à visão neutra / geral"
+                    >
+                      Resetar
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={clubeAtivo || ''}
+                  onChange={(e) => setClubeAtivo(e.target.value || null)}
+                  className="w-full bg-slate-900 border border-slate-700 text-white text-xs font-semibold rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  title="Selecione um clube para visualizar o sistema como ele veria"
+                >
+                  <option value="">Visão Geral (Todos os Clubes)</option>
+                  {clubes.map((c) => (
+                    <option key={c.nome} value={c.nome}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+                {clubeAtivo && (
+                  <p className="text-[10px] text-amber-400/90 font-medium leading-tight">
+                    👁️ Visualizando como <strong>{clubeAtivo}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="px-2 pt-2 text-center" title={clubeAtivo ? `Simulando: ${clubeAtivo}` : "Simulador de Clube (Admin)"}>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className={`w-full py-2 rounded-xl flex items-center justify-center transition cursor-pointer ${
+                  clubeAtivo
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-slate-800/60 text-slate-400 hover:text-amber-400 hover:bg-slate-800'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+              </button>
+            </div>
+          )
+        )}
+
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1.5">
+        <nav className={`flex-1 ${isCollapsed ? 'p-2 space-y-2' : 'p-3 space-y-1.5'}`}>
           {visibleItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -472,15 +568,20 @@ export default function Sidebar() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                title={item.label}
+                className={`flex items-center rounded-xl transition-all ${
+                  isCollapsed
+                    ? 'justify-center p-2.5 relative'
+                    : 'gap-3 px-3.5 py-2.5 text-sm font-medium'
+                } ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/40 font-semibold'
                     : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-100'
                 }`}
               >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span className="flex-1">{item.label}</span>
-                {item.badge && (
+                <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4 shrink-0'}`} />
+                {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+                {!isCollapsed && item.badge && (
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
                       isActive
@@ -491,101 +592,156 @@ export default function Sidebar() {
                     {item.badge}
                   </span>
                 )}
+                {isCollapsed && item.badge && (
+                  <span className="w-2 h-2 rounded-full bg-blue-400 absolute top-2 right-2 ring-2 ring-slate-900" />
+                )}
               </Link>
             );
           })}
         </nav>
 
         {/* Robô FPFS & Sincronização Agendada */}
-        <div className="p-3 mx-3 mb-2 rounded-xl bg-slate-900/90 border border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between gap-1 mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${syncInfo?.is_syncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
-              Robô FPFS
-            </span>
-            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold border ${
-              syncInfo?.is_syncing
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-            }`}>
-              {syncInfo?.is_syncing ? 'Atualizando...' : 'Ativo'}
-            </span>
-          </div>
+        {!isCollapsed ? (
+          <div className="p-3 mx-3 mb-2 rounded-xl bg-slate-900/90 border border-slate-800 shadow-sm">
+            <div className="flex items-center justify-between gap-1 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${syncInfo?.is_syncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
+                Robô FPFS
+              </span>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold border ${
+                syncInfo?.is_syncing
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              }`}>
+                {syncInfo?.is_syncing ? 'Atualizando...' : 'Ativo'}
+              </span>
+            </div>
 
-          {/* Card com Data e Hora da Última Sincronização */}
-          <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800/80 mb-1.5">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-              Última Sincronização:
+            {/* Card com Data e Hora da Última Sincronização */}
+            <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800/80 mb-1.5">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                Última Sincronização:
+              </p>
+              <p className="text-xs font-black text-slate-100 mt-0.5 flex items-center gap-1">
+                <span>📅</span>
+                <span>{formatarDataHoraSync(syncInfo?.ultimo_sync)}</span>
+              </p>
+            </div>
+
+            <p className="text-[10px] text-slate-400 flex items-center justify-between leading-tight px-0.5">
+              <span>Próximo agendado:</span>
+              <span className="text-slate-300 font-semibold">{formatarProximoSync(syncInfo?.proximo_sync_agendado)}</span>
             </p>
-            <p className="text-xs font-black text-slate-100 mt-0.5 flex items-center gap-1">
-              <span>📅</span>
-              <span>{formatarDataHoraSync(syncInfo?.ultimo_sync)}</span>
-            </p>
+
+            {/* Botão Exclusivo do Administrador com Trava Anti-Concorrência */}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleSyncManual}
+                disabled={syncInfo?.is_syncing || disparandoSync}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[11px] font-bold transition disabled:opacity-50 cursor-pointer active:scale-95"
+                title="Disparar varredura controlada com trava anti-concorrência"
+              >
+                <RefreshCw className={`w-3 h-3 ${syncInfo?.is_syncing || disparandoSync ? 'animate-spin' : ''}`} />
+                <span>{syncInfo?.is_syncing || disparandoSync ? 'Sincronizando...' : 'Sincronizar Manual'}</span>
+              </button>
+            )}
           </div>
-
-          <p className="text-[10px] text-slate-400 flex items-center justify-between leading-tight px-0.5">
-            <span>Próximo agendado:</span>
-            <span className="text-slate-300 font-semibold">{formatarProximoSync(syncInfo?.proximo_sync_agendado)}</span>
-          </p>
-
-          {/* Botão Exclusivo do Administrador com Trava Anti-Concorrência */}
-          {isAdmin && (
+        ) : (
+          <div className="p-2 mx-2 mb-2 flex justify-center">
             <button
               type="button"
-              onClick={handleSyncManual}
-              disabled={syncInfo?.is_syncing || disparandoSync}
-              className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[11px] font-bold transition disabled:opacity-50 cursor-pointer active:scale-95"
-              title="Disparar varredura controlada com trava anti-concorrência"
+              onClick={isAdmin ? handleSyncManual : toggleSidebar}
+              disabled={isAdmin && (syncInfo?.is_syncing || disparandoSync)}
+              className={`p-2 rounded-xl transition cursor-pointer relative ${
+                syncInfo?.is_syncing
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : 'bg-slate-800/70 text-slate-300 hover:text-blue-400 hover:bg-slate-800'
+              }`}
+              title={`Robô FPFS: ${syncInfo?.is_syncing ? 'Sincronizando...' : 'Ativo'}\nÚltimo: ${formatarDataHoraSync(syncInfo?.ultimo_sync)}${isAdmin ? '\n(Clique para sincronizar manual)' : '\n(Clique para expandir)'}`}
             >
-              <RefreshCw className={`w-3 h-3 ${syncInfo?.is_syncing || disparandoSync ? 'animate-spin' : ''}`} />
-              <span>{syncInfo?.is_syncing || disparandoSync ? 'Sincronizando...' : 'Sincronizar Manual'}</span>
+              <RefreshCw className={`w-4 h-4 ${syncInfo?.is_syncing || disparandoSync ? 'animate-spin text-amber-400' : ''}`} />
+              <span className={`w-2 h-2 rounded-full absolute -top-0.5 -right-0.5 ring-2 ring-slate-900 ${syncInfo?.is_syncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Support Box */}
-        <div className="p-3 mx-3 mb-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
-          <div className="flex items-center gap-2 mb-1.5">
-            <MessageSquare className="w-4 h-4 text-blue-400" />
-            <p className="text-xs font-semibold text-slate-200">Suporte Comercial</p>
+        {!isCollapsed ? (
+          <div className="p-3 mx-3 mb-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+            <div className="flex items-center gap-2 mb-1.5">
+              <MessageSquare className="w-4 h-4 text-blue-400" />
+              <p className="text-xs font-semibold text-slate-200">Suporte Comercial</p>
+            </div>
+            <p className="text-[11px] text-slate-400 mb-2">Júlio Martins • Gestão e Acessos.</p>
+            <a
+              href="https://wa.me/5519992035026"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-400 hover:text-blue-300 font-medium inline-flex items-center gap-1"
+            >
+              <span>Abrir WhatsApp</span> &rarr;
+            </a>
           </div>
-          <p className="text-[11px] text-slate-400 mb-2">Júlio Martins • Gestão e Acessos.</p>
-          <a
-            href="https://wa.me/5519992035026"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-400 hover:text-blue-300 font-medium inline-flex items-center gap-1"
-          >
-            <span>Abrir WhatsApp</span> &rarr;
-          </a>
-        </div>
+        ) : (
+          <div className="p-2 mx-2 mb-2 flex justify-center">
+            <a
+              href="https://wa.me/5519992035026"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-xl bg-slate-800/60 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition"
+              title="Suporte Comercial (WhatsApp) - Júlio Martins"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </a>
+          </div>
+        )}
 
         {/* User Info & Logout */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/50">
-          <div className="mb-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-300 font-bold text-sm shrink-0">
-              {usuario?.nome?.charAt(0).toUpperCase() || 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-semibold truncate">{usuario?.nome}</p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span
-                  className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeInfo.color}`}
-                >
-                  {usuario?.perfil === 'administrador' ? <Shield className="w-2.5 h-2.5" /> : null}
-                  {badgeInfo.label}
-                </span>
+        {!isCollapsed ? (
+          <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-300 font-bold text-sm shrink-0">
+                {usuario?.nome?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-semibold truncate">{usuario?.nome}</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span
+                    className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeInfo.color}`}
+                  >
+                    {usuario?.perfil === 'administrador' ? <Shield className="w-2.5 h-2.5" /> : null}
+                    {badgeInfo.label}
+                  </span>
+                </div>
               </div>
             </div>
+            <button
+              onClick={logout}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 border border-rose-900/30 transition-colors cursor-pointer active:scale-95"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Encerrar Sessão
+            </button>
           </div>
-          <button
-            onClick={logout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 border border-rose-900/30 transition-colors cursor-pointer active:scale-95"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Encerrar Sessão
-          </button>
-        </div>
+        ) : (
+          <div className="p-2 border-t border-slate-800 bg-slate-900/50 flex flex-col items-center gap-2">
+            <div
+              className="w-9 h-9 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-300 font-bold text-sm shrink-0 cursor-default"
+              title={`${usuario?.nome || 'Usuário'} (${badgeInfo.label})`}
+            >
+              {usuario?.nome?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <button
+              onClick={logout}
+              className="p-2 rounded-xl text-rose-400 hover:bg-rose-950/40 border border-rose-900/30 transition-colors cursor-pointer active:scale-95"
+              title="Encerrar Sessão"
+              aria-label="Encerrar Sessão"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </aside>
     </>
   );

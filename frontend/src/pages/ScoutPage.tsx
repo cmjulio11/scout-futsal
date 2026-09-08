@@ -393,7 +393,7 @@ export default function ScoutPage() {
   const totalAgendadas = partidasRodada.filter((p) => p.status !== 'Encerrado').length;
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row text-slate-100">
       <div className="no-print">
         <Sidebar />
       </div>
