@@ -31,8 +31,6 @@ import DossieImpressaoModal from '../components/DossieImpressaoModal';
 import GinasioLocalizacaoModal from '../components/GinasioLocalizacaoModal';
 import {
   limparNomeGinasio,
-  gerarTextoWhatsAppConfronto,
-  abrirWhatsApp,
   type WhatsAppConfrontoParams,
 } from '../utils/ginasios';
 import { useAuth } from '../contexts/AuthContext';
@@ -650,22 +648,25 @@ export default function ScoutPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const texto = gerarTextoWhatsAppConfronto({
-                        mandante: partidaAtual.mandante,
-                        visitante: partidaAtual.visitante,
-                        data: partidaAtual.data,
-                        hora: partidaAtual.hora,
-                        rodada: formatarRodada(partidaAtual.rodada),
-                        categoria: categoriaAtiva,
-                        ginasio: partidaAtual.ginasio,
+                      setGinasioModalData({
+                        nome: partidaAtual.ginasio || 'Ginásio Oficial FPFS',
+                        matchParams: {
+                          mandante: partidaAtual.mandante,
+                          visitante: partidaAtual.visitante,
+                          data: partidaAtual.data,
+                          hora: partidaAtual.hora,
+                          rodada: formatarRodada(partidaAtual.rodada),
+                          categoria: categoriaAtiva,
+                          ginasio: partidaAtual.ginasio,
+                        },
                       });
-                      abrirWhatsApp(texto);
+                      setGinasioModalOpen(true);
                     }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer active:scale-95"
-                    title="Compartilhar convocação no WhatsApp"
+                    title="Editar e compartilhar informe da rodada no WhatsApp"
                   >
                     <Share2 className="w-3.5 h-3.5" />
-                    <span>WhatsApp</span>
+                    <span>Informe / WhatsApp</span>
                   </button>
                 </div>
               </div>

@@ -223,6 +223,13 @@ export function obterLinkWaze(nomeGinasio: string): string {
   return `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes`;
 }
 
+export interface HorariosApresentacao {
+  sub7: string;
+  sub8: string;
+  sub9: string;
+  sub10: string;
+}
+
 export interface WhatsAppConfrontoParams {
   mandante: string;
   visitante: string;
@@ -231,10 +238,96 @@ export interface WhatsAppConfrontoParams {
   ginasio?: string;
   rodada?: string;
   categoria?: string;
+  // Campos customizáveis
+  horariosApresentacao?: HorariosApresentacao;
+  uniformeLinha?: string;
+  uniformeGoleiro?: string;
+  avisos?: string[];
+  localPersonalizado?: string;
+  enderecoPersonalizado?: string;
 }
 
 /**
- * Gera a mensagem formatada para WhatsApp de convocação/divulgação da rodada.
+ * Calcula automaticamente os horários de apresentação dos atletas com 1 hora de antecedência.
+ * Padrão FPFS: Jogos sequenciais de Sub-7, Sub-8, Sub-9 e Sub-10 a cada 1 hora.
+ */
+export function calcularHorariosApresentacao(horaBase?: string): HorariosApresentacao {
+  if (!horaBase) {
+    return {
+      sub7: '07:30h',
+      sub8: '08:30h',
+      sub9: '09:30h',
+      sub10: '10:30h',
+    };
+  }
+
+  const match = horaBase.match(/(\d{1,2})[:hH](\d{2})?/);
+  if (!match) {
+    return {
+      sub7: '07:30h',
+      sub8: '08:30h',
+      sub9: '09:30h',
+      sub10: '10:30h',
+    };
+  }
+
+  const horaInt = parseInt(match[1], 10);
+  const minStr = match[2] ? match[2].padStart(2, '0') : '00';
+
+  const formatHora = (h: number) => {
+    const horaAjustada = (h + 24) % 24;
+    return `${String(horaAjustada).padStart(2, '0')}:${minStr}h`;
+  };
+
+  // Sub-7 joga na hora base -> Apresentação é 1h antes
+  // Sub-8 joga 1h depois -> Apresentação é na hora base
+  // Sub-9 joga 2h depois -> Apresentação é 1h após a base
+  // Sub-10 joga 3h depois -> Apresentação é 2h após a base
+  return {
+    sub7: formatHora(horaInt - 1),
+    sub8: formatHora(horaInt),
+    sub9: formatHora(horaInt + 1),
+    sub10: formatHora(horaInt + 2),
+  };
+}
+
+/**
+ * Sugestão padrão de uniformes para clubes tradicionais (customizável na UI).
+ */
+export function obterUniformePadrao(clube?: string): { linha: string; goleiro: string } {
+  const c = (clube || '').toLowerCase();
+  if (c.includes('pulo')) {
+    return {
+      linha: 'Camisa Amarela, shorts Amarelo, Meião Amarelo',
+      goleiro: 'Camisa Preta, shorts Preto, Meião Preto',
+    };
+  }
+  if (c.includes('palmeiras')) {
+    return {
+      linha: 'Camisa Verde, shorts Branco, Meião Verde',
+      goleiro: 'Camisa Azul, shorts Azul, Meião Azul',
+    };
+  }
+  if (c.includes('corinthians')) {
+    return {
+      linha: 'Camisa Branca, shorts Preto, Meião Branco',
+      goleiro: 'Camisa Amarela, shorts Preto, Meião Preto',
+    };
+  }
+  if (c.includes('santos')) {
+    return {
+      linha: 'Camisa Branca, shorts Branco, Meião Branco',
+      goleiro: 'Camisa Azul, shorts Azul, Meião Azul',
+    };
+  }
+  return {
+    linha: 'Camisa Amarela, shorts Amarelo, Meião Amarelo',
+    goleiro: 'Camisa Preta, shorts Preto, Meião Preto',
+  };
+}
+
+/**
+ * Gera a mensagem formatada para WhatsApp de convocação/divulgação da rodada no padrão exato solicitado.
  */
 export function gerarTextoWhatsAppConfronto({
   mandante,
@@ -243,31 +336,59 @@ export function gerarTextoWhatsAppConfronto({
   hora,
   ginasio,
   rodada,
-  categoria,
+  horariosApresentacao,
+  uniformeLinha,
+  uniformeGoleiro,
+  avisos,
+  localPersonalizado,
+  enderecoPersonalizado,
 }: WhatsAppConfrontoParams): string {
   const ginasioInfo = resolverInfoGinasio(ginasio || 'Ginásio Oficial FPFS');
-  const linkMaps = obterLinkGoogleMaps(ginasio || 'Ginásio Oficial FPFS');
-  const linkWaze = obterLinkWaze(ginasio || 'Ginásio Oficial FPFS');
+  const localFinal = localPersonalizado?.trim() || ginasioInfo.nomeOficial;
+  const enderecoFinal =
+    enderecoPersonalizado?.trim() ||
+    `${ginasioInfo.endereco}${ginasioInfo.cidade ? ` - ${ginasioInfo.cidade}` : ''}`;
 
-  const rodadaTexto = rodada ? `🏆 *${rodada} • FPFS SÉRIE A1*` : '🏆 *CAMPEONATO PAULISTA DE INICIAÇÃO — FPFS*';
-  const categoriaTexto = categoria && categoria !== 'geral' ? `[${categoria}] ` : '';
+  const queryNavegacao = `${localFinal}, ${enderecoFinal}`;
+  const linkMaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryNavegacao)}`;
+  const linkWaze = `https://waze.com/ul?q=${encodeURIComponent(queryNavegacao)}&navigate=yes`;
+
+  const rodadaTexto = rodada ? `🏆 ${rodada} • FPFS SÉRIE A1` : '🏆 FPFS SÉRIE A1 • INICIAÇÃO';
+  const horarios = horariosApresentacao || calcularHorariosApresentacao(hora);
+  const uLinha = uniformeLinha || obterUniformePadrao(mandante).linha;
+  const uGoleiro = uniformeGoleiro || obterUniformePadrao(mandante).goleiro;
+
+  const avisosPadrao = [
+    '🚨 Levar todos os uniformes',
+    '🚨 Não esquecer caneleira',
+    '🚨 Não esquecer RG:  Original | Digital Gov | Cópia Autenticada',
+  ];
+  const avisosTexto = (avisos && avisos.length > 0 ? avisos : avisosPadrao).join('\n');
+
+  const limparHora = (h: string) => (h.endsWith('h') ? h : `${h}h`);
 
   return (
     `${rodadaTexto}\n\n` +
-    `⚽ *CONVOCAÇÃO & GUIA DA RODADA*\n` +
+    `⚽ INFORMAÇÕES DA RODADA\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚔️ *${categoriaTexto}${mandante}* 🆚 *${visitante}*\n` +
-    `📅 *Data:* ${data || 'A confirmar'}\n` +
-    `⏰ *Horário:* ${hora ? `${hora}h` : 'Horário FPFS'}\n` +
-    `📍 *Local:* ${ginasioInfo.nomeOficial}\n` +
-    `🏢 *Endereço:* ${ginasioInfo.endereco} - ${ginasioInfo.cidade}\n` +
+    `⚔️ ${mandante.toUpperCase()} 🆚 ${visitante.toUpperCase()}\n` +
+    `📅 Data: ${data || 'A definir'}\n` +
+    `⏰ Horário de Apresentação\n` +
+    `\tSUB7:  ${limparHora(horarios.sub7)}\n` +
+    `\tSUB8:  ${limparHora(horarios.sub8)}\n` +
+    `\tSUB9:  ${limparHora(horarios.sub9)}\n` +
+    `\tSUB10: ${limparHora(horarios.sub10)}\n\n` +
+    `⚡Uniformes\n` +
+    `\tLinha: ${uLinha}\n` +
+    `\tGoleiro: ${uGoleiro}\n\n` +
+    `📊 ATENÇÃO \n` +
+    `${avisosTexto}\n\n\n` +
+    `📍 Local do Jogo: ${localFinal}\n` +
+    `🏢 Endereço: ${enderecoFinal}\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `🗺️ *COMO CHEGAR (NAVEGAÇÃO):*\n` +
-    `• *Google Maps:* ${linkMaps}\n` +
-    `• *Waze:* ${linkWaze}\n\n` +
-    `⚡ *Quadro Completo de Jogos do Dia:*\n` +
-    `• Sub-07 | Sub-08 | Sub-09 | Sub-10\n\n` +
-    `📊 _Consulte o raio-x e artilharia no Intelligent Futsal Scout!_`
+    `🗺️ COMO CHEGAR (NAVEGAÇÃO):\n` +
+    `* Google Maps: ${linkMaps}\n\n` +
+    `* Waze: ${linkWaze}`
   );
 }
 

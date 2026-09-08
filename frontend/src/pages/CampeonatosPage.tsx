@@ -39,8 +39,6 @@ import {
 import GinasioLocalizacaoModal from '../components/GinasioLocalizacaoModal';
 import {
   limparNomeGinasio,
-  gerarTextoWhatsAppConfronto,
-  abrirWhatsApp,
   type WhatsAppConfrontoParams,
 } from '../utils/ginasios';
 
@@ -1037,19 +1035,22 @@ export default function CampeonatosPage() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const texto = gerarTextoWhatsAppConfronto({
-                                    mandante: jogo.mandante,
-                                    visitante: jogo.visitante,
-                                    data: jogo.data,
-                                    hora: jogo.hora,
-                                    rodada: formatarRodada(jogo.rodada),
-                                    categoria: categoriaSelecionada,
-                                    ginasio: jogo.ginasio,
+                                  setGinasioModalData({
+                                    nome: jogo.ginasio || 'Ginásio Oficial FPFS',
+                                    matchParams: {
+                                      mandante: jogo.mandante,
+                                      visitante: jogo.visitante,
+                                      data: jogo.data,
+                                      hora: jogo.hora,
+                                      rodada: formatarRodada(jogo.rodada),
+                                      categoria: categoriaSelecionada,
+                                      ginasio: jogo.ginasio,
+                                    },
                                   });
-                                  abrirWhatsApp(texto);
+                                  setGinasioModalOpen(true);
                                 }}
                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[10px] sm:text-[11px] font-bold transition cursor-pointer active:scale-95"
-                                title="Compartilhar convocação e local no WhatsApp"
+                                title="Editar e compartilhar informe da rodada no WhatsApp"
                               >
                                 <Share2 className="w-3 h-3" />
                                 <span className="hidden sm:inline">WhatsApp</span>

@@ -45,8 +45,6 @@ import toast from 'react-hot-toast';
 import GinasioLocalizacaoModal from '../components/GinasioLocalizacaoModal';
 import {
   limparNomeGinasio,
-  gerarTextoWhatsAppConfronto,
-  abrirWhatsApp,
   type WhatsAppConfrontoParams,
 } from '../utils/ginasios';
 
@@ -387,18 +385,21 @@ export default function DashboardPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                const texto = gerarTextoWhatsAppConfronto({
-                                  mandante: resumo.meu_clube!.proximo_jogo!.mandante,
-                                  visitante: resumo.meu_clube!.proximo_jogo!.visitante,
-                                  data: resumo.meu_clube!.proximo_jogo!.data,
-                                  hora: resumo.meu_clube!.proximo_jogo!.hora,
-                                  rodada: resumo.meu_clube!.proximo_jogo!.rodada,
-                                  ginasio: resumo.meu_clube!.proximo_jogo!.ginasio,
+                                setGinasioModalData({
+                                  nome: resumo.meu_clube!.proximo_jogo!.ginasio || 'Ginásio Oficial FPFS',
+                                  matchParams: {
+                                    mandante: resumo.meu_clube!.proximo_jogo!.mandante,
+                                    visitante: resumo.meu_clube!.proximo_jogo!.visitante,
+                                    data: resumo.meu_clube!.proximo_jogo!.data,
+                                    hora: resumo.meu_clube!.proximo_jogo!.hora,
+                                    rodada: resumo.meu_clube!.proximo_jogo!.rodada,
+                                    ginasio: resumo.meu_clube!.proximo_jogo!.ginasio,
+                                  },
                                 });
-                                abrirWhatsApp(texto);
+                                setGinasioModalOpen(true);
                               }}
                               className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold transition cursor-pointer active:scale-95"
-                              title="Compartilhar Guia da Partida no WhatsApp"
+                              title="Editar e compartilhar informe da rodada no WhatsApp"
                             >
                               <Share2 className="w-3 h-3" />
                               <span className="hidden sm:inline">WhatsApp</span>
