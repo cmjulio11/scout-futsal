@@ -359,36 +359,40 @@ export function gerarTextoWhatsAppConfronto({
   const uGoleiro = uniformeGoleiro || obterUniformePadrao(mandante).goleiro;
 
   const avisosPadrao = [
-    '🚨 Levar todos os uniformes',
-    '🚨 Não esquecer caneleira',
-    '🚨 Não esquecer RG:  Original | Digital Gov | Cópia Autenticada',
+    '✅ Levar todos os uniformes;',
+    '✅ Não esquecer caneleira;',
+    '✅ Não esquecer RG:  Original | Digital Gov | Cópia Autenticada | Carteirinha.',
   ];
   const avisosTexto = (avisos && avisos.length > 0 ? avisos : avisosPadrao).join('\n');
 
   const limparHora = (h: string) => (h.endsWith('h') ? h : `${h}h`);
+  const formatarUniforme = (u: string) => {
+    const t = u.trim();
+    return t.endsWith('.') ? t : `${t}.`;
+  };
 
   return (
     `${rodadaTexto}\n\n` +
     `⚽ INFORMAÇÕES DA RODADA\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚔️ ${mandante.toUpperCase()} 🆚 ${visitante.toUpperCase()}\n` +
-    `📅 Data: ${data || 'A definir'}\n` +
-    `⏰ Horário de Apresentação\n` +
-    `\tSUB7:  ${limparHora(horarios.sub7)}\n` +
-    `\tSUB8:  ${limparHora(horarios.sub8)}\n` +
-    `\tSUB9:  ${limparHora(horarios.sub9)}\n` +
-    `\tSUB10: ${limparHora(horarios.sub10)}\n\n` +
-    `⚡Uniformes\n` +
-    `\tLinha: ${uLinha}\n` +
-    `\tGoleiro: ${uGoleiro}\n\n` +
-    `📊 ATENÇÃO \n` +
+    `⚔️ ${mandante.toUpperCase()} ❎ ${visitante.toUpperCase()}\n` +
+    `📅 DATA: ${data || 'A definir'}\n` +
+    `⏰ HORÁRIO DE APRESENTAÇÃO:\n` +
+    `\t➤ SUB7:  ${limparHora(horarios.sub7)}\n` +
+    `\t➤ SUB8:  ${limparHora(horarios.sub8)}\n` +
+    `\t➤ SUB9:  ${limparHora(horarios.sub9)}\n` +
+    `\t➤ SUB10: ${limparHora(horarios.sub10)}\n\n` +
+    `⚡UNIFORMES:\n` +
+    `    ⛔ LINHA: ${formatarUniforme(uLinha)}\n` +
+    `    ⛔ GOLEIRO: ${formatarUniforme(uGoleiro)}\n\n` +
+    `🚨 ATENÇÃO \n` +
     `${avisosTexto}\n\n\n` +
-    `📍 Local do Jogo: ${localFinal}\n` +
-    `🏢 Endereço: ${enderecoFinal}\n` +
+    `📍 LOCAL DO JOGO: ${localFinal}\n` +
+    `🏢 ENDEREÇO: ${enderecoFinal}\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `🗺️ COMO CHEGAR (NAVEGAÇÃO):\n` +
-    `* Google Maps: ${linkMaps}\n\n` +
-    `* Waze: ${linkWaze}`
+    `✔ GOOGLE MAPS: ${linkMaps}\n\n` +
+    `✔ WAZE: ${linkWaze}`
   );
 }
 

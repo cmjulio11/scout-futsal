@@ -58,7 +58,7 @@ export default function GinasioLocalizacaoModal({
   const [uniformeLinha, setUniformeLinha] = useState('');
   const [uniformeGoleiro, setUniformeGoleiro] = useState('');
   const [avisos, setAvisos] = useState(
-    '🚨 Levar todos os uniformes\n🚨 Não esquecer caneleira\n🚨 Não esquecer RG:  Original | Digital Gov | Cópia Autenticada'
+    '✅ Levar todos os uniformes;\n✅ Não esquecer caneleira;\n✅ Não esquecer RG:  Original | Digital Gov | Cópia Autenticada | Carteirinha.'
   );
 
   // Inicializa ou reseta os campos quando o modal abre ou os dados do jogo mudam
@@ -83,7 +83,7 @@ export default function GinasioLocalizacaoModal({
     setUniformeGoleiro(matchParams?.uniformeGoleiro || uniPadrao.goleiro);
 
     setAvisos(
-      '🚨 Levar todos os uniformes\n🚨 Não esquecer caneleira\n🚨 Não esquecer RG:  Original | Digital Gov | Cópia Autenticada'
+      '✅ Levar todos os uniformes;\n✅ Não esquecer caneleira;\n✅ Não esquecer RG:  Original | Digital Gov | Cópia Autenticada | Carteirinha.'
     );
     setAbaMobile('editor');
   }, [isOpen, ginasioNome, matchParams]);
@@ -133,7 +133,7 @@ export default function GinasioLocalizacaoModal({
     setUniformeLinha(uniPadrao.linha);
     setUniformeGoleiro(uniPadrao.goleiro);
     setAvisos(
-      '🚨 Levar todos os uniformes\n🚨 Não esquecer caneleira\n🚨 Não esquecer RG:  Original | Digital Gov | Cópia Autenticada'
+      '✅ Levar todos os uniformes;\n✅ Não esquecer caneleira;\n✅ Não esquecer RG:  Original | Digital Gov | Cópia Autenticada | Carteirinha.'
     );
     toast.success('Valores padrão restaurados!');
   };
