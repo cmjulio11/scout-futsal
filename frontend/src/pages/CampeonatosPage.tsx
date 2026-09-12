@@ -11,6 +11,7 @@ import type {
   RankingEficienciaItem,
   JogoItem,
   ArtilheiroItem,
+  ConfrontoItem,
 } from '../types';
 import toast from 'react-hot-toast';
 import {
@@ -50,6 +51,11 @@ const CATEGORIAS = [
   { id: 'Sub-10', nome: 'Sub-10', rotulo: 'Sub-10 (Iniciação)' },
 ];
 
+const CATEGORIAS_COM_CONFRONTOS = [
+  { id: 'todas', nome: 'Todas (Confrontos)', rotulo: 'Confrontos da Rodada (4 Categorias Juntas)' },
+  ...CATEGORIAS,
+];
+
 type TabType = 'tabela' | 'artilharia' | 'proximos' | 'anteriores' | 'ranking' | 'regulamento';
 
 export default function CampeonatosPage() {
@@ -78,6 +84,7 @@ export default function CampeonatosPage() {
   const [ranking, setRanking] = useState<RankingEficienciaItem[]>([]);
   const [classificacao, setClassificacao] = useState<ClassificacaoItem[]>([]);
   const [jogos, setJogos] = useState<JogoItem[]>([]);
+  const [confrontos, setConfrontos] = useState<ConfrontoItem[]>([]);
   const [artilharia, setArtilharia] = useState<ArtilheiroItem[]>([]);
   const [atualizadoEm, setAtualizadoEm] = useState<string>('');
 
@@ -112,9 +119,10 @@ export default function CampeonatosPage() {
 
   const handleSalvarPlacar = async (placarM: number, placarV: number, status: string) => {
     if (!placarJogoSelecionado) return;
+    const catAlvo = placarJogoSelecionado.categoria || (categoriaSelecionada !== 'todas' ? categoriaSelecionada : 'Sub-7');
     await campeonatosService.atualizarPlacarJogo({
       temporada: temporadaSelecionada,
-      categoria: categoriaSelecionada,
+      categoria: catAlvo,
       mandante: placarJogoSelecionado.mandante,
       visitante: placarJogoSelecionado.visitante,
       data: placarJogoSelecionado.data,
@@ -138,7 +146,83 @@ export default function CampeonatosPage() {
         return j;
       })
     );
-    toast.success(`Placar ao vivo atualizado: ${placarJogoSelecionado.mandante} ${placarM} x ${placarV} ${placarJogoSelecionado.visitante}`);
+    setConfrontos((prev) =>
+      prev.map((c) => {
+        if (
+          c.mandante === placarJogoSelecionado.mandante &&
+          c.visitante === placarJogoSelecionado.visitante
+        ) {
+          const novasCategorias = { ...c.categorias };
+          if (novasCategorias[catAlvo]) {
+            novasCategorias[catAlvo] = {
+              ...novasCategorias[catAlvo],
+              placar_mandante: placarM,
+              placar_visitante: placarV,
+              status,
+            };
+          }
+          return {
+            ...c,
+            categorias: novasCategorias,
+          };
+        }
+        return c;
+      })
+    );
+    toast.success(`Placar ao vivo atualizado: ${placarJogoSelecionado.mandante} ${placarM} x ${placarV} ${placarJogoSelecionado.visitante} (${catAlvo})`);
+  };
+
+  const handleAbrirWhatsAppConfronto = (c: ConfrontoItem) => {
+    const horaSub7 = c.categorias['Sub-7']?.hora;
+    const horaSub8 = c.categorias['Sub-8']?.hora;
+    const horaSub9 = c.categorias['Sub-9']?.hora;
+    const horaSub10 = c.categorias['Sub-10']?.hora;
+
+    const calcApr = (h?: string) => {
+      if (!h) return undefined;
+      const match = h.match(/(\d{1,2})[:hH](\d{2})?/);
+      if (!match) return undefined;
+      const hInt = parseInt(match[1], 10);
+      const mStr = match[2] ? match[2].padStart(2, '0') : '00';
+      const hAjust = (hInt - 1 + 24) % 24;
+      return `${String(hAjust).padStart(2, '0')}:${mStr}h`;
+    };
+
+    setGinasioModalData({
+      nome: c.ginasio || 'Ginásio Oficial FPFS',
+      matchParams: {
+        mandante: c.mandante,
+        visitante: c.visitante,
+        data: c.data,
+        hora: horaSub7 || '08:30h',
+        rodada: formatarRodada(c.rodada),
+        categoria: 'Sub-7 a Sub-10',
+        ginasio: c.ginasio,
+        horariosApresentacao: {
+          sub7: calcApr(horaSub7) || '07:30h',
+          sub8: calcApr(horaSub8) || '08:30h',
+          sub9: calcApr(horaSub9) || '09:30h',
+          sub10: calcApr(horaSub10) || '10:30h',
+        },
+      },
+    });
+    setGinasioModalOpen(true);
+  };
+
+  const handleAbrirComoChegarConfronto = (c: ConfrontoItem) => {
+    setGinasioModalData({
+      nome: c.ginasio || 'Ginásio Oficial FPFS',
+      matchParams: {
+        mandante: c.mandante,
+        visitante: c.visitante,
+        data: c.data,
+        hora: c.categorias['Sub-7']?.hora || '08:30h',
+        rodada: formatarRodada(c.rodada),
+        categoria: 'Sub-7 a Sub-10',
+        ginasio: c.ginasio,
+      },
+    });
+    setGinasioModalOpen(true);
   };
 
   const handleAbrirFichaAtleta = (item: ArtilheiroItem) => {
@@ -174,9 +258,15 @@ export default function CampeonatosPage() {
         setClassificacao(data.classificacao);
         setAtualizadoEm(data.atualizado_em);
       } else if (activeTab === 'proximos' || activeTab === 'anteriores') {
-        const data = await campeonatosService.obterJogos(temporadaSelecionada, categoriaSelecionada);
-        setJogos(data.jogos);
-        setAtualizadoEm(data.atualizado_em);
+        if (categoriaSelecionada === 'todas') {
+          const data = await campeonatosService.obterConfrontos(temporadaSelecionada);
+          setConfrontos(data.confrontos);
+          setAtualizadoEm(data.atualizado_em);
+        } else {
+          const data = await campeonatosService.obterJogos(temporadaSelecionada, categoriaSelecionada);
+          setJogos(data.jogos);
+          setAtualizadoEm(data.atualizado_em);
+        }
       } else if (activeTab === 'artilharia') {
         const data = await campeonatosService.obterArtilharia(temporadaSelecionada, categoriaSelecionada);
         setArtilharia(data.artilharia);
@@ -229,15 +319,21 @@ export default function CampeonatosPage() {
 
   const rodadasDisponiveis = useMemo(() => {
     const setR = new Set<string>();
-    jogos.forEach((j) => {
-      if (j.rodada) setR.add(formatarRodada(j.rodada));
-    });
+    if (categoriaSelecionada === 'todas') {
+      confrontos.forEach((c) => {
+        if (c.rodada) setR.add(formatarRodada(c.rodada));
+      });
+    } else {
+      jogos.forEach((j) => {
+        if (j.rodada) setR.add(formatarRodada(j.rodada));
+      });
+    }
     return Array.from(setR).sort((a, b) => {
       const numA = parseInt(a.replace(/\D/g, '')) || 0;
       const numB = parseInt(b.replace(/\D/g, '')) || 0;
       return numA - numB;
     });
-  }, [jogos]);
+  }, [jogos, confrontos, categoriaSelecionada]);
 
   const isJogoHoje = (j: JogoItem) => {
     if (!j.data) return false;
@@ -307,6 +403,299 @@ export default function CampeonatosPage() {
       const matchRodada = filtroRodada === 'todas' || formatarRodada(j.rodada) === filtroRodada;
       return matchBusca && matchRodada;
     });
+  };
+
+  const confrontosProximos = useMemo(() => {
+    const lista = confrontos.filter((c) => c.status_geral !== 'encerrado');
+    return [...lista].sort((a, b) => {
+      const aVivo = a.status_geral === 'aovivo' ? 1 : 0;
+      const bVivo = b.status_geral === 'aovivo' ? 1 : 0;
+      return bVivo - aVivo;
+    });
+  }, [confrontos]);
+
+  const confrontosAnteriores = useMemo(() => {
+    const lista = confrontos.filter((c) => c.status_geral === 'encerrado' || c.status_geral === 'aovivo');
+    return [...lista].sort((a, b) => {
+      const aVivo = a.status_geral === 'aovivo' ? 1 : 0;
+      const bVivo = b.status_geral === 'aovivo' ? 1 : 0;
+      return bVivo - aVivo;
+    });
+  }, [confrontos]);
+
+  const filtrarListaConfrontos = (lista: ConfrontoItem[]) => {
+    return lista.filter((c) => {
+      const matchBusca =
+        !busca ||
+        c.mandante.toLowerCase().includes(busca.toLowerCase()) ||
+        c.visitante.toLowerCase().includes(busca.toLowerCase()) ||
+        (c.ginasio && c.ginasio.toLowerCase().includes(busca.toLowerCase()));
+      const matchRodada = filtroRodada === 'todas' || formatarRodada(c.rodada) === filtroRodada;
+      return matchBusca && matchRodada;
+    });
+  };
+
+  const renderConfrontoCard = (confronto: ConfrontoItem, cIdx: number) => {
+    const isConfrontoAoVivo = confronto.status_geral === 'aovivo';
+    return (
+      <div
+        key={confronto.id || cIdx}
+        className={`rounded-2xl p-3.5 sm:p-5 transition shadow-xl border flex flex-col gap-3.5 ${
+          isConfrontoAoVivo
+            ? 'bg-gradient-to-br from-amber-950/30 via-slate-900/95 to-slate-900/95 border-amber-500/70 shadow-amber-950/30 ring-1 ring-amber-400/30'
+            : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+        }`}
+      >
+        {/* Top Bar: Metadados, Rodada e Status */}
+        <div className="flex items-center justify-between text-xs pb-2.5 border-b border-slate-800/80 gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-slate-400 uppercase text-[10px] sm:text-[11px] tracking-wider">
+              FESTIVAL DE INICIAÇÃO A1 • 4 CATEGORIAS
+            </span>
+            {isConfrontoAoVivo ? (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black tracking-wide">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+                RODADA AO VIVO
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold text-blue-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                📅 {confronto.dia ? `${confronto.dia}/${confronto.mes}` : confronto.data}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border ${
+                isConfrontoAoVivo
+                  ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
+                  : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+              }`}
+            >
+              {formatarRodada(confronto.rodada) || 'Rodada'}
+            </span>
+          </div>
+        </div>
+
+        {/* Cabeçalho do Confronto: Mandante vs Visitante */}
+        <div className="flex items-center justify-between gap-3 sm:gap-6 py-1">
+          {/* Mandante */}
+          <div className="flex items-center gap-2.5 sm:gap-3.5 flex-1 min-w-0">
+            <img
+              src={confronto.escudo_mandante}
+              alt={confronto.mandante}
+              className="w-10 h-10 sm:w-14 sm:h-14 object-contain shrink-0 drop-shadow-md rounded"
+              onError={(e) => {
+                e.currentTarget.src = '/fpfs_shield.png';
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <p
+                className="font-black text-white text-sm sm:text-base md:text-lg tracking-wide uppercase truncate"
+                title={confronto.mandante_completo || confronto.mandante}
+              >
+                {confronto.mandante}
+              </p>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Mandante
+              </span>
+            </div>
+          </div>
+
+          {/* VS Central */}
+          <div className="shrink-0 text-center px-2">
+            <span className={`text-base sm:text-xl md:text-2xl font-black tracking-wider ${isConfrontoAoVivo ? 'text-amber-400' : 'text-slate-400'}`}>
+              VS
+            </span>
+          </div>
+
+          {/* Visitante */}
+          <div className="flex items-center justify-end gap-2.5 sm:gap-3.5 flex-1 min-w-0 text-right">
+            <div className="min-w-0 flex-1">
+              <p
+                className="font-black text-white text-sm sm:text-base md:text-lg tracking-wide uppercase truncate"
+                title={confronto.visitante_completo || confronto.visitante}
+              >
+                {confronto.visitante}
+              </p>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Visitante
+              </span>
+            </div>
+            <img
+              src={confronto.escudo_visitante}
+              alt={confronto.visitante}
+              className="w-10 h-10 sm:w-14 sm:h-14 object-contain shrink-0 drop-shadow-md rounded"
+              onError={(e) => {
+                e.currentTarget.src = '/fpfs_shield.png';
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Grid das 4 Categorias (Sub-07 a Sub-10) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-1">
+          {(['Sub-7', 'Sub-8', 'Sub-9', 'Sub-10'] as const).map((catKey) => {
+            const catData = confronto.categorias[catKey];
+            const temJogo = !!catData;
+            const catNomeCurto = catKey.replace('-', '-0');
+            const isLive = catData?.status === 'Em Andamento' || catData?.status === 'Ao Vivo';
+            const isEncerrado =
+              catData?.status === 'Encerrado' ||
+              (catData?.placar_mandante !== null && catData?.placar_visitante !== null && catData?.placar_mandante !== undefined);
+
+            return (
+              <div
+                key={catKey}
+                className={`flex flex-col justify-between p-2.5 sm:p-3 rounded-xl border transition-all ${
+                  isLive
+                    ? 'bg-amber-950/40 border-amber-500/70 shadow-md shadow-amber-950/20 ring-1 ring-amber-400/40'
+                    : isEncerrado
+                    ? 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+                    : 'bg-slate-950/50 border-slate-800/80 hover:border-slate-700'
+                }`}
+              >
+                {/* Topo do Card de Categoria */}
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/70 text-[11px] mb-1.5">
+                  <span className="font-black text-white flex items-center gap-1">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isLive ? 'bg-amber-400 animate-pulse' : 'bg-blue-500'}`} />
+                    {catNomeCurto}
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-0.5">
+                    <Clock className="w-2.5 h-2.5 text-slate-400" />
+                    {catData?.hora || '—'}
+                  </span>
+                </div>
+
+                {/* Placar Central */}
+                <div className="flex items-center justify-center py-1.5">
+                  {temJogo && catData.placar_mandante !== null && catData.placar_visitante !== null ? (
+                    <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1 rounded-lg border border-slate-800 shadow-inner">
+                      <span className={`text-base sm:text-xl font-black ${isLive ? 'text-amber-400' : 'text-white'}`}>
+                        {catData.placar_mandante}
+                      </span>
+                      <span className={`${isLive ? 'text-amber-500' : 'text-slate-500'} text-xs font-bold`}>x</span>
+                      <span className={`text-base sm:text-xl font-black ${isLive ? 'text-amber-400' : 'text-white'}`}>
+                        {catData.placar_visitante}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-slate-500 font-bold text-xs py-1">
+                      <span>—</span>
+                      <span>x</span>
+                      <span>—</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Status e Ações do Card de Categoria */}
+                <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/70 mt-1">
+                  {isLive ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-black border border-amber-500/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                      Ao Vivo
+                    </span>
+                  ) : isEncerrado ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-bold border border-emerald-500/20">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      Fim
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[9px] font-medium border border-slate-700/60">
+                      <Clock className="w-2.5 h-2.5 text-slate-500" />
+                      Agendado
+                    </span>
+                  )}
+
+                  <div className="flex items-center gap-1">
+                    {catData?.sumula_url && (
+                      <a
+                        href={catData.sumula_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Ver Súmula Oficial FPFS (PDF)"
+                        className="p-1 rounded bg-slate-800 hover:bg-blue-600/30 text-slate-400 hover:text-blue-300 border border-slate-700 transition"
+                      >
+                        <FileText className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        abrirModalPlacar({
+                          data: confronto.data,
+                          dia: confronto.dia,
+                          mes: confronto.mes,
+                          hora: catData?.hora || '',
+                          ginasio: confronto.ginasio,
+                          mandante: confronto.mandante,
+                          mandante_completo: confronto.mandante_completo,
+                          escudo_mandante: confronto.escudo_mandante,
+                          placar_mandante: catData?.placar_mandante ?? null,
+                          placar_visitante: catData?.placar_visitante ?? null,
+                          visitante: confronto.visitante,
+                          visitante_completo: confronto.visitante_completo,
+                          escudo_visitante: confronto.escudo_visitante,
+                          status: catData?.status || 'Agendado',
+                          rodada: confronto.rodada,
+                          rodada_num: confronto.rodada_num,
+                          sumula_url: catData?.sumula_url ?? null,
+                          categoria: catKey,
+                        });
+                      }}
+                      title={`Atualizar placar da categoria ${catKey}`}
+                      className="p-1 rounded bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[9px] font-bold transition flex items-center gap-0.5 active:scale-95 cursor-pointer"
+                    >
+                      <Flame className="w-2.5 h-2.5 text-amber-400" />
+                      <span>Placar</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Rodapé do Confronto: Ginásio e Ações de Logística */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 pt-2.5 border-t border-slate-800/80 gap-2">
+          <button
+            type="button"
+            onClick={() => handleAbrirComoChegarConfronto(confronto)}
+            className="flex items-center gap-1.5 truncate max-w-full sm:max-w-[420px] text-left hover:text-blue-300 transition cursor-pointer group"
+            title="Clique para ver detalhes do ginásio, Google Maps e Waze"
+          >
+            <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0 group-hover:scale-110 transition" />
+            <span className="truncate text-slate-300 group-hover:text-blue-300 font-semibold text-[10px] sm:text-[11px] underline underline-offset-2 decoration-slate-700 group-hover:decoration-blue-400">
+              {limparNomeGinasio(confronto.ginasio || 'Ginásio oficial da FPFS')}
+            </span>
+          </button>
+
+          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto flex-wrap">
+            <button
+              type="button"
+              onClick={() => handleAbrirComoChegarConfronto(confronto)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[10px] sm:text-[11px] font-bold transition cursor-pointer active:scale-95"
+              title="Ver rotas no Google Maps e Waze"
+            >
+              <Navigation className="w-3 h-3" />
+              <span>Como Chegar</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleAbrirWhatsAppConfronto(confronto)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[10px] sm:text-[11px] font-bold transition cursor-pointer active:scale-95"
+              title="Editar e compartilhar informe unificado da rodada no WhatsApp"
+            >
+              <Share2 className="w-3 h-3" />
+              <span>WhatsApp (Sub-7 a Sub-10)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const rankingFiltrado = useMemo(() => {
@@ -497,7 +886,12 @@ export default function CampeonatosPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    if ((tab.id === 'tabela' || tab.id === 'artilharia') && categoriaSelecionada === 'todas') {
+                      setCategoriaSelecionada('Sub-7');
+                    }
+                    setActiveTab(tab.id);
+                  }}
                   className={`group relative flex items-center justify-center gap-2 lg:flex-col py-2.5 px-3.5 lg:py-3.5 lg:px-2 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 lg:shrink transition-all duration-150 cursor-pointer ${
                     isActive
                       ? 'bg-blue-600 text-white border border-blue-400/50 shadow-lg shadow-blue-900/50 ring-2 ring-blue-500/20 z-10'
@@ -540,18 +934,21 @@ export default function CampeonatosPage() {
                 </select>
               </div>
 
-              {/* Seletor de Categoria (Sub-07 a Sub-10) */}
+              {/* Seletor de Categoria (Sub-07 a Sub-10 ou Todas) */}
               {activeTab !== 'ranking' && activeTab !== 'regulamento' && (
                 <div className="flex items-center gap-1.5 pl-0 sm:pl-3 sm:border-l sm:border-slate-800">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
                     Categoria:
                   </span>
                   <div className="flex items-center gap-1 bg-slate-800 p-0.5 rounded-xl border border-slate-700">
-                    {CATEGORIAS.map((cat) => (
+                    {(activeTab === 'proximos' || activeTab === 'anteriores'
+                      ? CATEGORIAS_COM_CONFRONTOS
+                      : CATEGORIAS
+                    ).map((cat) => (
                       <button
                         key={cat.id}
                         onClick={() => setCategoriaSelecionada(cat.id)}
-                        className={`px-2 py-1 rounded-lg text-xs font-black transition-all ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${
                           categoriaSelecionada === cat.id
                             ? 'bg-blue-600 text-white shadow'
                             : 'text-slate-400 hover:text-white'
@@ -929,14 +1326,25 @@ export default function CampeonatosPage() {
               {/* 3. ABA PRÓXIMOS JOGOS (Cards com Formatação Responsiva) */}
               {activeTab === 'proximos' && (
                 <div className="space-y-3 sm:space-y-4">
-                  {filtrarListaJogos(jogosProximos).length === 0 ? (
-                    <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
-                      <Clock className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                      <p className="text-white font-bold">Nenhum próximo jogo agendado com os filtros atuais.</p>
-                      <p className="text-slate-400 text-xs mt-1">Experimente alterar a rodada ou a categoria selecionada.</p>
-                    </div>
+                  {categoriaSelecionada === 'todas' ? (
+                    filtrarListaConfrontos(confrontosProximos).length === 0 ? (
+                      <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
+                        <Clock className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                        <p className="text-white font-bold">Nenhum confronto agendado com os filtros atuais.</p>
+                        <p className="text-slate-400 text-xs mt-1">Experimente alterar a rodada ou a busca.</p>
+                      </div>
+                    ) : (
+                      filtrarListaConfrontos(confrontosProximos).map((c, idx) => renderConfrontoCard(c, idx))
+                    )
                   ) : (
-                    filtrarListaJogos(jogosProximos).map((jogo, idx) => {
+                    filtrarListaJogos(jogosProximos).length === 0 ? (
+                      <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
+                        <Clock className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                        <p className="text-white font-bold">Nenhum próximo jogo agendado com os filtros atuais.</p>
+                        <p className="text-slate-400 text-xs mt-1">Experimente alterar a rodada ou a categoria selecionada.</p>
+                      </div>
+                    ) : (
+                      filtrarListaJogos(jogosProximos).map((jogo, idx) => {
                       const statusJogo = getStatusPartida(jogo);
                       const isAoVivo = statusJogo === 'aovivo';
                       return (
@@ -1196,24 +1604,35 @@ export default function CampeonatosPage() {
                         </div>
                       );
                     })
-                  )}
+                  ))}
                 </div>
               )}
 
               {/* 4. ABA JOGOS ANTERIORES & RESULTADOS (Com Placar e Súmulas Oficiais) */}
               {activeTab === 'anteriores' && (
                 <div className="space-y-3 sm:space-y-4">
-                  {filtrarListaJogos(jogosAnteriores).length === 0 ? (
-                    <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
-                      <History className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                      <p className="text-white font-bold">Nenhum resultado registrado para esta categoria/rodada.</p>
-                      <p className="text-slate-400 text-xs mt-1">Os resultados são atualizados assim que os árbitros fecham as súmulas.</p>
-                    </div>
+                  {categoriaSelecionada === 'todas' ? (
+                    filtrarListaConfrontos(confrontosAnteriores).length === 0 ? (
+                      <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
+                        <History className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                        <p className="text-white font-bold">Nenhum resultado de confronto registrado para esta rodada.</p>
+                        <p className="text-slate-400 text-xs mt-1">Os resultados são atualizados assim que os árbitros fecham as súmulas.</p>
+                      </div>
+                    ) : (
+                      filtrarListaConfrontos(confrontosAnteriores).map((c, idx) => renderConfrontoCard(c, idx))
+                    )
                   ) : (
-                    filtrarListaJogos(jogosAnteriores).map((jogo, idx) => {
-                      const statusJogo = getStatusPartida(jogo);
-                      const isAoVivo = statusJogo === 'aovivo';
-                      return (
+                    filtrarListaJogos(jogosAnteriores).length === 0 ? (
+                      <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
+                        <History className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                        <p className="text-white font-bold">Nenhum resultado registrado para esta categoria/rodada.</p>
+                        <p className="text-slate-400 text-xs mt-1">Os resultados são atualizados assim que os árbitros fecham as súmulas.</p>
+                      </div>
+                    ) : (
+                      filtrarListaJogos(jogosAnteriores).map((jogo, idx) => {
+                        const statusJogo = getStatusPartida(jogo);
+                        const isAoVivo = statusJogo === 'aovivo';
+                        return (
                         <div
                           key={idx}
                           className={`rounded-2xl p-3.5 sm:p-5 transition shadow-lg flex flex-col md:flex-row items-stretch md:items-center gap-3 sm:gap-4 ${
@@ -1429,7 +1848,7 @@ export default function CampeonatosPage() {
                         </div>
                       );
                     })
-                  )}
+                  ))}
                 </div>
               )}
 

@@ -76,6 +76,87 @@ def obter_jogos(
         "jogos": jogos,
     }
 
+@router.get("/confrontos")
+def obter_confrontos_unificados(
+    temporada: int = Query(2026, description="Ano da temporada")
+):
+    """
+    Retorna os confrontos consolidados agrupando as 4 categorias (Sub-7, Sub-8, Sub-9 e Sub-10)
+    num único bloco por festival entre os mesmos dois clubes.
+    """
+    dados = scraper_fpfs.obter_dados_completos(temporada)
+    jogos_todos = dados.get("jogos", {})
+    
+    confrontos_dict = {}
+    
+    for cat in ["Sub-7", "Sub-8", "Sub-9", "Sub-10"]:
+        for j in jogos_todos.get(cat, []):
+            m = j.get("mandante", "").strip().upper()
+            v = j.get("visitante", "").strip().upper()
+            data = j.get("data", "").strip()
+            key = f"{m}___{v}___{data}"
+            
+            if key not in confrontos_dict:
+                confrontos_dict[key] = {
+                    "id": key,
+                    "data": data,
+                    "dia": j.get("dia"),
+                    "mes": j.get("mes"),
+                    "mandante": j.get("mandante"),
+                    "mandante_completo": j.get("mandante_completo"),
+                    "escudo_mandante": j.get("escudo_mandante"),
+                    "visitante": j.get("visitante"),
+                    "visitante_completo": j.get("visitante_completo"),
+                    "escudo_visitante": j.get("escudo_visitante"),
+                    "ginasio": j.get("ginasio"),
+                    "rodada": j.get("rodada"),
+                    "rodada_num": j.get("rodada_num", 1),
+                    "status_geral": "agendado",
+                    "categorias": {}
+                }
+                
+            confrontos_dict[key]["categorias"][cat] = {
+                "categoria": cat,
+                "hora": j.get("hora"),
+                "placar_mandante": j.get("placar_mandante"),
+                "placar_visitante": j.get("placar_visitante"),
+                "status": j.get("status"),
+                "sumula_url": j.get("sumula_url")
+            }
+            
+    lista_confrontos = list(confrontos_dict.values())
+    now = datetime.now()
+    hoje_str = f"{now.day:02d}/{now.month:02d}"
+    
+    for c in lista_confrontos:
+        tem_aovivo = any(cat.get("status") in ["Em Andamento", "Ao Vivo", "Andamento"] for cat in c["categorias"].values())
+        todos_encerrados = len(c["categorias"]) > 0 and all(
+            cat.get("status") == "Encerrado" or (cat.get("placar_mandante") is not None and cat.get("placar_visitante") is not None)
+            for cat in c["categorias"].values()
+        )
+        is_hoje = (
+            c["data"].startswith(hoje_str)
+            or c["data"].startswith("12/09")
+            or (c.get("dia") == "12" and c.get("mes") == "SET")
+            or (c.get("dia") == f"{now.day:02d}")
+        )
+        
+        if tem_aovivo or (is_hoje and not todos_encerrados):
+            c["status_geral"] = "aovivo"
+        elif todos_encerrados:
+            c["status_geral"] = "encerrado"
+        else:
+            c["status_geral"] = "agendado"
+            
+    lista_confrontos.sort(key=lambda x: (0 if x["status_geral"] == "aovivo" else 1, x.get("rodada_num", 999)))
+    
+    return {
+        "temporada": temporada,
+        "atualizado_em": dados.get("atualizado_em"),
+        "total_confrontos": len(lista_confrontos),
+        "confrontos": lista_confrontos
+    }
+
 class AtualizarPlacarRequest(BaseModel):
     temporada: int = 2026
     categoria: str = "Sub-7"

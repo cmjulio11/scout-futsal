@@ -14,6 +14,7 @@ import type {
   DashboardResumoResponse,
   SyncStatusResponse,
   PlayoffsResponse,
+  ConfrontoItem,
 } from '../types';
 
 const api = axios.create({
@@ -92,6 +93,15 @@ export const campeonatosService = {
         total_jogos: number;
         jogos: JogoItem[];
       }>('/api/campeonatos/jogos', { params: { temporada, categoria } })
+      .then((r) => r.data),
+  obterConfrontos: (temporada: number) =>
+    api
+      .get<{
+        temporada: number;
+        atualizado_em: string;
+        total_confrontos: number;
+        confrontos: ConfrontoItem[];
+      }>('/api/campeonatos/confrontos', { params: { temporada } })
       .then((r) => r.data),
   atualizarPlacarJogo: (dados: {
     temporada: number;

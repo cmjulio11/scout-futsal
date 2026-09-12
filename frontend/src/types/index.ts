@@ -76,6 +76,35 @@ export interface JogoItem {
   rodada?: string;
   rodada_num?: number;
   sumula_url: string | null;
+  categoria?: string;
+}
+
+export interface ConfrontoCategoriaItem {
+  categoria: string;
+  hora: string;
+  placar_mandante: number | null;
+  placar_visitante: number | null;
+  status: string;
+  sumula_url: string | null;
+}
+
+export interface ConfrontoItem {
+  id: string;
+  data: string;
+  dia?: string;
+  mes?: string;
+  ano?: string;
+  mandante: string;
+  mandante_completo?: string;
+  escudo_mandante: string;
+  visitante: string;
+  visitante_completo?: string;
+  escudo_visitante: string;
+  ginasio: string;
+  rodada?: string;
+  rodada_num?: number;
+  status_geral: 'aovivo' | 'encerrado' | 'agendado';
+  categorias: Record<string, ConfrontoCategoriaItem>;
 }
 
 export interface ArtilheiroItem {
