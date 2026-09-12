@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException, Depends, Response
 from typing import Optional, List, Dict, Any
+from datetime import datetime
+from pydantic import BaseModel
 import urllib.parse
 from ..services import scraper_fpfs
 from ..services.sync_manager import sync_manager
@@ -72,6 +74,48 @@ def obter_jogos(
         "atualizado_em": dados.get("atualizado_em"),
         "total_jogos": len(jogos),
         "jogos": jogos,
+    }
+
+class AtualizarPlacarRequest(BaseModel):
+    temporada: int = 2026
+    categoria: str = "Sub-7"
+    mandante: str
+    visitante: str
+    data: Optional[str] = None
+    hora: Optional[str] = None
+    placar_mandante: Optional[int] = None
+    placar_visitante: Optional[int] = None
+    status: str = "Em Andamento"  # "Em Andamento", "Encerrado", "Agendado"
+
+@router.post("/jogos/atualizar-placar")
+def atualizar_placar_jogo(req: AtualizarPlacarRequest):
+    """Permite atualizar o placar ao vivo e status de uma partida."""
+    dados = scraper_fpfs.obter_dados_completos(req.temporada)
+    jogos = dados.get("jogos", {}).get(req.categoria, [])
+    
+    jogo_encontrado = None
+    for j in jogos:
+        m_match = req.mandante.lower() in j.get("mandante", "").lower() or j.get("mandante", "").lower() in req.mandante.lower()
+        v_match = req.visitante.lower() in j.get("visitante", "").lower() or j.get("visitante", "").lower() in req.visitante.lower()
+        if m_match and v_match:
+            if req.data and j.get("data") and req.data not in j.get("data"):
+                continue
+            jogo_encontrado = j
+            break
+            
+    if not jogo_encontrado:
+        raise HTTPException(status_code=404, detail="Partida não encontrada.")
+        
+    jogo_encontrado["placar_mandante"] = req.placar_mandante
+    jogo_encontrado["placar_visitante"] = req.placar_visitante
+    jogo_encontrado["status"] = req.status
+    dados["atualizado_em"] = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+    
+    scraper_fpfs.salvar_dados_locais(req.temporada, dados)
+    return {
+        "status": "ok",
+        "mensagem": "Placar ao vivo atualizado com sucesso!",
+        "jogo": jogo_encontrado
     }
 
 @router.get("/artilharia")

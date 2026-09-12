@@ -1,6 +1,6 @@
 {
   "temporada": 2026,
-  "atualizado_em": "2026-09-07T14:43:40.820298",
+  "atualizado_em": "12/09/2026, 12:01:47",
   "classificacao": {
     "Sub-7": [
       {
@@ -7437,12 +7437,12 @@
         "mandante": "CAMISA 10",
         "mandante_completo": "CAMISA 10 F.C. A",
         "escudo_mandante": "/escudos/camisa_10.png",
-        "placar_mandante": null,
-        "placar_visitante": null,
+        "placar_mandante": 2,
+        "placar_visitante": 1,
         "visitante": "A.D. BATEBOLA",
         "visitante_completo": "A.D. BATEBOLA",
         "escudo_visitante": "/escudos/batebola.png",
-        "status": "Agendado",
+        "status": "Em Andamento",
         "rodada": "23ª Rodada",
         "rodada_num": 23,
         "sumula_url": null

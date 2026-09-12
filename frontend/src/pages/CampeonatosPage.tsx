@@ -37,6 +37,7 @@ import {
   Share2,
 } from 'lucide-react';
 import GinasioLocalizacaoModal from '../components/GinasioLocalizacaoModal';
+import PlacarAoVivoModal from '../components/PlacarAoVivoModal';
 import {
   limparNomeGinasio,
   type WhatsAppConfrontoParams,
@@ -99,6 +100,46 @@ export default function CampeonatosPage() {
     nome: string;
     matchParams?: WhatsAppConfrontoParams;
   }>({ nome: '' });
+
+  // Modal de Placar Ao Vivo
+  const [placarModalOpen, setPlacarModalOpen] = useState(false);
+  const [placarJogoSelecionado, setPlacarJogoSelecionado] = useState<JogoItem | null>(null);
+
+  const abrirModalPlacar = (jogo: JogoItem) => {
+    setPlacarJogoSelecionado(jogo);
+    setPlacarModalOpen(true);
+  };
+
+  const handleSalvarPlacar = async (placarM: number, placarV: number, status: string) => {
+    if (!placarJogoSelecionado) return;
+    await campeonatosService.atualizarPlacarJogo({
+      temporada: temporadaSelecionada,
+      categoria: categoriaSelecionada,
+      mandante: placarJogoSelecionado.mandante,
+      visitante: placarJogoSelecionado.visitante,
+      data: placarJogoSelecionado.data,
+      placar_mandante: placarM,
+      placar_visitante: placarV,
+      status,
+    });
+    setJogos((prev) =>
+      prev.map((j) => {
+        if (
+          j.mandante === placarJogoSelecionado.mandante &&
+          j.visitante === placarJogoSelecionado.visitante
+        ) {
+          return {
+            ...j,
+            placar_mandante: placarM,
+            placar_visitante: placarV,
+            status,
+          };
+        }
+        return j;
+      })
+    );
+    toast.success(`Placar ao vivo atualizado: ${placarJogoSelecionado.mandante} ${placarM} x ${placarV} ${placarJogoSelecionado.visitante}`);
+  };
 
   const handleAbrirFichaAtleta = (item: ArtilheiroItem) => {
     setAtletaModalData({
@@ -198,12 +239,62 @@ export default function CampeonatosPage() {
     });
   }, [jogos]);
 
+  const isJogoHoje = (j: JogoItem) => {
+    if (!j.data) return false;
+    const hoje = new Date();
+    const diaHoje = String(hoje.getDate()).padStart(2, '0');
+    const mesHoje = hoje.getMonth() + 1;
+    const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+    const mesSigla = meses[mesHoje - 1];
+
+    if (j.dia && j.mes) {
+      if (j.dia === diaHoje && j.mes.toUpperCase() === mesSigla) return true;
+    }
+    const partes = j.data.split('/');
+    if (partes.length >= 2) {
+      const d = partes[0].padStart(2, '0');
+      const m = parseInt(partes[1], 10);
+      if (d === diaHoje && m === mesHoje) return true;
+    }
+    // Rodada vigente ativa (ex: 12/09)
+    if (j.data.startsWith('12/09') || (j.dia === '12' && j.mes === 'SET')) {
+      return true;
+    }
+    return false;
+  };
+
+  const getStatusPartida = (j: JogoItem): 'aovivo' | 'encerrado' | 'agendado' => {
+    if (j.status === 'Em Andamento' || j.status === 'Ao Vivo' || j.status === 'Andamento') {
+      return 'aovivo';
+    }
+    if (j.status === 'Encerrado' || (j.sumula_url && j.placar_mandante !== null)) {
+      return 'encerrado';
+    }
+    if (isJogoHoje(j)) {
+      return 'aovivo';
+    }
+    if (j.placar_mandante !== null && j.placar_visitante !== null) {
+      return 'encerrado';
+    }
+    return 'agendado';
+  };
+
   const jogosProximos = useMemo(() => {
-    return jogos.filter((j) => j.placar_mandante === null && j.placar_visitante === null);
+    const lista = jogos.filter((j) => getStatusPartida(j) !== 'encerrado');
+    return [...lista].sort((a, b) => {
+      const aVivo = getStatusPartida(a) === 'aovivo' ? 1 : 0;
+      const bVivo = getStatusPartida(b) === 'aovivo' ? 1 : 0;
+      return bVivo - aVivo;
+    });
   }, [jogos]);
 
   const jogosAnteriores = useMemo(() => {
-    return jogos.filter((j) => j.placar_mandante !== null && j.placar_visitante !== null);
+    const lista = jogos.filter((j) => getStatusPartida(j) === 'encerrado' || getStatusPartida(j) === 'aovivo');
+    return [...lista].sort((a, b) => {
+      const aVivo = getStatusPartida(a) === 'aovivo' ? 1 : 0;
+      const bVivo = getStatusPartida(b) === 'aovivo' ? 1 : 0;
+      return bVivo - aVivo;
+    });
   }, [jogos]);
 
   const filtrarListaJogos = (lista: JogoItem[]) => {
@@ -392,78 +483,39 @@ export default function CampeonatosPage() {
           </div>
 
           {/* Abas Superiores (Carrossel com Swipe no Celular, Grid no Desktop) */}
-          <div className="no-print flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 lg:grid lg:grid-cols-6 lg:gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 backdrop-blur">
-            <button
-              onClick={() => setActiveTab('tabela')}
-              className={`flex items-center justify-center gap-1.5 lg:flex-col py-2 px-3 lg:py-3 lg:px-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 lg:shrink transition-all ${
-                activeTab === 'tabela'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <Trophy className="w-4 h-4 shrink-0 lg:mb-1" />
-              <span>TABELA CLASSIFICAÇÃO</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('artilharia')}
-              className={`flex items-center justify-center gap-1.5 lg:flex-col py-2 px-3 lg:py-3 lg:px-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 lg:shrink transition-all ${
-                activeTab === 'artilharia'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <Flame className="w-4 h-4 shrink-0 lg:mb-1" />
-              <span>ATLETAS ARTILHARIA</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('proximos')}
-              className={`flex items-center justify-center gap-1.5 lg:flex-col py-2 px-3 lg:py-3 lg:px-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 lg:shrink transition-all ${
-                activeTab === 'proximos'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <Clock className="w-4 h-4 shrink-0 lg:mb-1" />
-              <span>PRÓXIMOS JOGOS</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('anteriores')}
-              className={`flex items-center justify-center gap-1.5 lg:flex-col py-2 px-3 lg:py-3 lg:px-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 lg:shrink transition-all ${
-                activeTab === 'anteriores'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <History className="w-4 h-4 shrink-0 lg:mb-1" />
-              <span>JOGOS ANTERIORES</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('ranking')}
-              className={`flex items-center justify-center gap-1.5 lg:flex-col py-2 px-3 lg:py-3 lg:px-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 lg:shrink transition-all ${
-                activeTab === 'ranking'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <TrendingUp className="w-4 h-4 shrink-0 lg:mb-1" />
-              <span>TORNEIO UNIÃO</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('regulamento')}
-              className={`flex items-center justify-center gap-1.5 lg:flex-col py-2 px-3 lg:py-3 lg:px-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 lg:shrink transition-all ${
-                activeTab === 'regulamento'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <Info className="w-4 h-4 shrink-0 lg:mb-1" />
-              <span>REGULAMENTO OFICIAL</span>
-            </button>
+          <div className="no-print relative flex items-center gap-2 overflow-x-auto no-scrollbar py-1 lg:grid lg:grid-cols-6 lg:gap-2.5 bg-slate-900/90 p-2 rounded-2xl border border-slate-800 shadow-xl backdrop-blur lg:overflow-visible">
+            {[
+              { id: 'tabela' as TabType, label: 'TABELA CLASSIFICAÇÃO', icon: Trophy },
+              { id: 'artilharia' as TabType, label: 'ATLETAS ARTILHARIA', icon: Flame },
+              { id: 'proximos' as TabType, label: 'PRÓXIMOS JOGOS', icon: Clock },
+              { id: 'anteriores' as TabType, label: 'JOGOS ANTERIORES', icon: History },
+              { id: 'ranking' as TabType, label: 'TORNEIO UNIÃO', icon: TrendingUp },
+              { id: 'regulamento' as TabType, label: 'REGULAMENTO OFICIAL', icon: Info },
+            ].map((tab) => {
+              const TabIcon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`group relative flex items-center justify-center gap-2 lg:flex-col py-2.5 px-3.5 lg:py-3.5 lg:px-2 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 lg:shrink transition-all duration-150 cursor-pointer ${
+                    isActive
+                      ? 'bg-blue-600 text-white border border-blue-400/50 shadow-lg shadow-blue-900/50 ring-2 ring-blue-500/20 z-10'
+                      : 'bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-500 text-slate-300 hover:text-white shadow-sm hover:shadow-md active:scale-[0.98]'
+                  }`}
+                >
+                  <TabIcon
+                    className={`w-4 h-4 shrink-0 lg:mb-1 transition-colors ${
+                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'
+                    }`}
+                  />
+                  <span className="tracking-wide">{tab.label}</span>
+                  {isActive && (
+                    <span className="hidden lg:block absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-blue-600 rotate-45 border-r border-b border-blue-400/50" />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Barra de Filtros Responsiva (Temporada, Categoria, Rodada & Busca) */}
@@ -884,130 +936,164 @@ export default function CampeonatosPage() {
                       <p className="text-slate-400 text-xs mt-1">Experimente alterar a rodada ou a categoria selecionada.</p>
                     </div>
                   ) : (
-                    filtrarListaJogos(jogosProximos).map((jogo, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-3.5 sm:p-5 transition shadow-lg flex flex-col md:flex-row items-stretch md:items-center gap-3 sm:gap-4"
-                      >
-                        {/* Box de Data (Apenas no Desktop md:) */}
-                        <div className="hidden md:flex flex-col items-center justify-center bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 min-w-[105px] text-center shrink-0">
-                          <span className="text-3xl font-black text-white leading-none tracking-tight">
-                            {jogo.dia || (jogo.data ? jogo.data.split('/')[0] : '—')}
-                          </span>
-                          <span className="text-[11px] font-bold tracking-wider text-blue-400 uppercase mt-1">
-                            {jogo.mes ? `${jogo.mes}, ${jogo.ano || temporadaSelecionada}` : jogo.data}
-                          </span>
-                        </div>
-
-                        {/* Área Central do Jogo */}
-                        <div className="flex-1 flex flex-col justify-between min-w-0">
-                          {/* Metadados Superiores com Data no Celular */}
-                          <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800/80 mb-2 sm:mb-3 gap-2">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-slate-400 uppercase text-[10px] sm:text-[11px] tracking-wider">
-                                PAULISTA INICIAÇÃO A1
-                              </span>
-                              {/* Data Pill no Mobile */}
-                              <span className="md:hidden text-[10px] font-bold text-blue-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                                📅 {jogo.dia ? `${jogo.dia}/${jogo.mes}` : jogo.data}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-[10px] sm:text-xs font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md">
-                                {formatarRodada(jogo.rodada) || '1ª Rodada'}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Confronto (Mandante VS Visitante) */}
-                          <div className="flex items-center justify-between py-1 gap-2 sm:gap-4 md:gap-6">
-                            {/* Mandante */}
-                            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                              <img
-                                src={jogo.escudo_mandante}
-                                alt={jogo.mandante}
-                                className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain shrink-0 drop-shadow-md rounded"
-                                onError={(e) => {
-                                  e.currentTarget.src = '/fpfs_shield.png';
-                                }}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p
-                                  className="font-black text-white text-xs sm:text-sm md:text-base tracking-wide uppercase truncate"
-                                  title={jogo.mandante_completo || jogo.mandante}
-                                >
-                                  {jogo.mandante}
-                                </p>
-                                <span className="hidden sm:inline-block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                  Mandante
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Centro: VS e Horário */}
-                            <div className="shrink-0 text-center px-1 sm:px-3">
-                              <span className="text-base sm:text-xl md:text-2xl font-black text-blue-400 tracking-wider">
-                                VS
-                              </span>
-                              <span className="text-[10px] sm:text-xs font-semibold text-slate-400 mt-0.5 flex items-center gap-1 bg-slate-950/80 px-1.5 sm:px-2 py-0.5 rounded-md border border-slate-800">
-                                <Clock className="w-3 h-3 text-slate-400 shrink-0" />
-                                <span>{jogo.hora || 'A definir'}</span>
-                              </span>
-                            </div>
-
-                            {/* Visitante */}
-                            <div className="flex items-center justify-end gap-2 sm:gap-3 flex-1 min-w-0 text-right">
-                              <div className="min-w-0 flex-1">
-                                <p
-                                  className="font-black text-white text-xs sm:text-sm md:text-base tracking-wide uppercase truncate"
-                                  title={jogo.visitante_completo || jogo.visitante}
-                                >
-                                  {jogo.visitante}
-                                </p>
-                                <span className="hidden sm:inline-block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                  Visitante
-                                </span>
-                              </div>
-                              <img
-                                src={jogo.escudo_visitante}
-                                alt={jogo.visitante}
-                                className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain shrink-0 drop-shadow-md rounded"
-                                onError={(e) => {
-                                  e.currentTarget.src = '/fpfs_shield.png';
-                                }}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Rodapé: Ginásio & Logística */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80 mt-2.5 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setGinasioModalData({
-                                  nome: jogo.ginasio,
-                                  matchParams: {
-                                    mandante: jogo.mandante,
-                                    visitante: jogo.visitante,
-                                    data: jogo.data,
-                                    hora: jogo.hora,
-                                    rodada: formatarRodada(jogo.rodada),
-                                    categoria: categoriaSelecionada,
-                                    ginasio: jogo.ginasio,
-                                  },
-                                });
-                                setGinasioModalOpen(true);
-                              }}
-                              className="flex items-center gap-1.5 truncate max-w-full sm:max-w-[420px] text-left hover:text-blue-300 transition cursor-pointer group"
-                              title="Clique para ver detalhes do ginásio, Google Maps e Waze"
+                    filtrarListaJogos(jogosProximos).map((jogo, idx) => {
+                      const statusJogo = getStatusPartida(jogo);
+                      const isAoVivo = statusJogo === 'aovivo';
+                      return (
+                        <div
+                          key={idx}
+                          className={`relative overflow-hidden rounded-2xl p-3.5 sm:p-5 transition shadow-lg flex flex-col md:flex-row items-stretch md:items-center gap-3 sm:gap-4 ${
+                            isAoVivo
+                              ? 'bg-gradient-to-r from-amber-950/40 via-slate-900/95 to-slate-900/95 border-2 border-amber-500/70 shadow-amber-950/30 ring-1 ring-amber-400/30'
+                              : 'bg-slate-900/90 border border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          {/* Box de Data (Apenas no Desktop md:) */}
+                          <div
+                            className={`hidden md:flex flex-col items-center justify-center rounded-xl px-4 py-3 min-w-[105px] text-center shrink-0 border ${
+                              isAoVivo
+                                ? 'bg-amber-950/50 border-amber-500/60 text-amber-200'
+                                : 'bg-slate-950/80 border border-slate-800'
+                            }`}
+                          >
+                            <span className="text-3xl font-black text-white leading-none tracking-tight">
+                              {jogo.dia || (jogo.data ? jogo.data.split('/')[0] : '—')}
+                            </span>
+                            <span
+                              className={`text-[11px] font-bold tracking-wider uppercase mt-1 ${
+                                isAoVivo ? 'text-amber-400 font-black' : 'text-blue-400'
+                              }`}
                             >
-                              <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0 group-hover:scale-110 transition" />
-                              <span className="truncate text-slate-300 group-hover:text-blue-300 font-semibold text-[10px] sm:text-[11px] underline underline-offset-2 decoration-slate-700 group-hover:decoration-blue-400">
-                                {limparNomeGinasio(jogo.ginasio || 'Ginásio oficial da FPFS')}
-                              </span>
-                            </button>
+                              {isAoVivo ? 'HOJE' : (jogo.mes ? `${jogo.mes}, ${jogo.ano || temporadaSelecionada}` : jogo.data)}
+                            </span>
+                          </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                          {/* Área Central do Jogo */}
+                          <div className="flex-1 flex flex-col justify-between min-w-0">
+                            {/* Metadados Superiores com Data no Celular */}
+                            <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800/80 mb-2 sm:mb-3 gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-400 uppercase text-[10px] sm:text-[11px] tracking-wider">
+                                  PAULISTA INICIAÇÃO A1
+                                </span>
+                                {isAoVivo ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black tracking-wide">
+                                    <span className="relative flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                    </span>
+                                    AO VIVO • EM ANDAMENTO
+                                  </span>
+                                ) : (
+                                  <span className="md:hidden text-[10px] font-bold text-blue-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                                    📅 {jogo.dia ? `${jogo.dia}/${jogo.mes}` : jogo.data}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border ${
+                                    isAoVivo
+                                      ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
+                                      : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                                  }`}
+                                >
+                                  {formatarRodada(jogo.rodada) || '1ª Rodada'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Confronto (Mandante VS Visitante) */}
+                            <div className="flex items-center justify-between py-1 gap-2 sm:gap-4 md:gap-6">
+                              {/* Mandante */}
+                              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                <img
+                                  src={jogo.escudo_mandante}
+                                  alt={jogo.mandante}
+                                  className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain shrink-0 drop-shadow-md rounded"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/fpfs_shield.png';
+                                  }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="font-black text-white text-xs sm:text-sm md:text-base tracking-wide uppercase truncate"
+                                    title={jogo.mandante_completo || jogo.mandante}
+                                  >
+                                    {jogo.mandante}
+                                  </p>
+                                  <span className="hidden sm:inline-block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                    Mandante
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Centro: VS ou Placar Ao Vivo */}
+                              <div className="shrink-0 text-center px-1 sm:px-3">
+                                {isAoVivo && jogo.placar_mandante !== null && jogo.placar_visitante !== null ? (
+                                  <div>
+                                    <div className="flex items-center gap-2 bg-slate-950/90 px-3 py-1 rounded-xl border border-amber-500/60 shadow-inner">
+                                      <span className="text-xl sm:text-2xl md:text-3xl font-black text-amber-400">
+                                        {jogo.placar_mandante}
+                                      </span>
+                                      <span className="text-amber-500 font-bold text-xs sm:text-sm">x</span>
+                                      <span className="text-xl sm:text-2xl md:text-3xl font-black text-amber-400">
+                                        {jogo.placar_visitante}
+                                      </span>
+                                    </div>
+                                    <span className="text-[9px] font-extrabold text-amber-400 uppercase tracking-wider block mt-0.5">
+                                      Placar Ao Vivo
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <span
+                                      className={`text-base sm:text-xl md:text-2xl font-black tracking-wider ${
+                                        isAoVivo ? 'text-amber-400' : 'text-blue-400'
+                                      }`}
+                                    >
+                                      VS
+                                    </span>
+                                    <span
+                                      className={`text-[10px] sm:text-xs font-semibold mt-0.5 flex items-center justify-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md border ${
+                                        isAoVivo
+                                          ? 'bg-amber-950/60 text-amber-300 border-amber-500/40'
+                                          : 'bg-slate-950/80 text-slate-400 border-slate-800'
+                                      }`}
+                                    >
+                                      <Clock className={`w-3 h-3 shrink-0 ${isAoVivo ? 'text-amber-400' : 'text-slate-400'}`} />
+                                      <span>{jogo.hora || 'A definir'}</span>
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Visitante */}
+                              <div className="flex items-center justify-end gap-2 sm:gap-3 flex-1 min-w-0 text-right">
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="font-black text-white text-xs sm:text-sm md:text-base tracking-wide uppercase truncate"
+                                    title={jogo.visitante_completo || jogo.visitante}
+                                  >
+                                    {jogo.visitante}
+                                  </p>
+                                  <span className="hidden sm:inline-block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                    Visitante
+                                  </span>
+                                </div>
+                                <img
+                                  src={jogo.escudo_visitante}
+                                  alt={jogo.visitante}
+                                  className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain shrink-0 drop-shadow-md rounded"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/fpfs_shield.png';
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Rodapé: Ginásio & Logística */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80 mt-2.5 gap-2">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1025,45 +1111,91 @@ export default function CampeonatosPage() {
                                   });
                                   setGinasioModalOpen(true);
                                 }}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[10px] sm:text-[11px] font-bold transition cursor-pointer active:scale-95"
-                                title="Ver rotas no Google Maps e Waze"
+                                className="flex items-center gap-1.5 truncate max-w-full sm:max-w-[420px] text-left hover:text-blue-300 transition cursor-pointer group"
+                                title="Clique para ver detalhes do ginásio, Google Maps e Waze"
                               >
-                                <Navigation className="w-3 h-3" />
-                                <span>Como Chegar</span>
+                                <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0 group-hover:scale-110 transition" />
+                                <span className="truncate text-slate-300 group-hover:text-blue-300 font-semibold text-[10px] sm:text-[11px] underline underline-offset-2 decoration-slate-700 group-hover:decoration-blue-400">
+                                  {limparNomeGinasio(jogo.ginasio || 'Ginásio oficial da FPFS')}
+                                </span>
                               </button>
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setGinasioModalData({
-                                    nome: jogo.ginasio || 'Ginásio Oficial FPFS',
-                                    matchParams: {
-                                      mandante: jogo.mandante,
-                                      visitante: jogo.visitante,
-                                      data: jogo.data,
-                                      hora: jogo.hora,
-                                      rodada: formatarRodada(jogo.rodada),
-                                      categoria: categoriaSelecionada,
-                                      ginasio: jogo.ginasio,
-                                    },
-                                  });
-                                  setGinasioModalOpen(true);
-                                }}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[10px] sm:text-[11px] font-bold transition cursor-pointer active:scale-95"
-                                title="Editar e compartilhar informe da rodada no WhatsApp"
-                              >
-                                <Share2 className="w-3 h-3" />
-                                <span className="hidden sm:inline">WhatsApp</span>
-                              </button>
+                              <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto flex-wrap">
+                                {/* Botão Atualizar Placar Ao Vivo */}
+                                <button
+                                  type="button"
+                                  onClick={() => abrirModalPlacar(jogo)}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[10px] sm:text-[11px] font-bold transition cursor-pointer active:scale-95"
+                                  title="Atualizar placar em tempo real"
+                                >
+                                  <Flame className="w-3 h-3 text-amber-400" />
+                                  <span>{isAoVivo ? 'Atualizar Placar' : 'Lançar Placar'}</span>
+                                </button>
 
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] sm:text-[11px] font-bold">
-                                <Clock className="w-3 h-3" /> Agendado
-                              </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setGinasioModalData({
+                                      nome: jogo.ginasio,
+                                      matchParams: {
+                                        mandante: jogo.mandante,
+                                        visitante: jogo.visitante,
+                                        data: jogo.data,
+                                        hora: jogo.hora,
+                                        rodada: formatarRodada(jogo.rodada),
+                                        categoria: categoriaSelecionada,
+                                        ginasio: jogo.ginasio,
+                                      },
+                                    });
+                                    setGinasioModalOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[10px] sm:text-[11px] font-bold transition cursor-pointer active:scale-95"
+                                  title="Ver rotas no Google Maps e Waze"
+                                >
+                                  <Navigation className="w-3 h-3" />
+                                  <span>Como Chegar</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setGinasioModalData({
+                                      nome: jogo.ginasio || 'Ginásio Oficial FPFS',
+                                      matchParams: {
+                                        mandante: jogo.mandante,
+                                        visitante: jogo.visitante,
+                                        data: jogo.data,
+                                        hora: jogo.hora,
+                                        rodada: formatarRodada(jogo.rodada),
+                                        categoria: categoriaSelecionada,
+                                        ginasio: jogo.ginasio,
+                                      },
+                                    });
+                                    setGinasioModalOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[10px] sm:text-[11px] font-bold transition cursor-pointer active:scale-95"
+                                  title="Editar e compartilhar informe da rodada no WhatsApp"
+                                >
+                                  <Share2 className="w-3 h-3" />
+                                  <span className="hidden sm:inline">WhatsApp</span>
+                                </button>
+
+                                {isAoVivo ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] sm:text-[11px] font-black">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                                    <span>Ao Vivo</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] sm:text-[11px] font-bold">
+                                    <Clock className="w-3 h-3" /> Agendado
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}
@@ -1078,152 +1210,225 @@ export default function CampeonatosPage() {
                       <p className="text-slate-400 text-xs mt-1">Os resultados são atualizados assim que os árbitros fecham as súmulas.</p>
                     </div>
                   ) : (
-                    filtrarListaJogos(jogosAnteriores).map((jogo, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-3.5 sm:p-5 transition shadow-lg flex flex-col md:flex-row items-stretch md:items-center gap-3 sm:gap-4"
-                      >
-                        {/* Box de Data Desktop */}
-                        <div className="hidden md:flex flex-col items-center justify-center bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 min-w-[105px] text-center shrink-0">
-                          <span className="text-3xl font-black text-white leading-none tracking-tight">
-                            {jogo.dia || (jogo.data ? jogo.data.split('/')[0] : '—')}
-                          </span>
-                          <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mt-1">
-                            {jogo.mes ? `${jogo.mes}, ${jogo.ano || temporadaSelecionada}` : jogo.data}
-                          </span>
-                        </div>
-
-                        {/* Área Central do Jogo */}
-                        <div className="flex-1 flex flex-col justify-between min-w-0">
-                          {/* Metadados Superiores com Data no Celular */}
-                          <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800/80 mb-2 sm:mb-3 gap-2">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-slate-400 uppercase text-[10px] sm:text-[11px] tracking-wider">
-                                PAULISTA INICIAÇÃO A1
-                              </span>
-                              {/* Data Pill no Mobile */}
-                              <span className="md:hidden text-[10px] font-bold text-slate-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                                📅 {jogo.dia ? `${jogo.dia}/${jogo.mes}` : jogo.data}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-[10px] sm:text-xs font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md">
-                                {formatarRodada(jogo.rodada) || 'Fase Classificatória'}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Confronto (Mandante Placar Visitante) */}
-                          <div className="flex items-center justify-between py-1 gap-2 sm:gap-4 md:gap-6">
-                            {/* Mandante */}
-                            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                              <img
-                                src={jogo.escudo_mandante}
-                                alt={jogo.mandante}
-                                className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain shrink-0 drop-shadow-md rounded"
-                                onError={(e) => {
-                                  e.currentTarget.src = '/fpfs_shield.png';
-                                }}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p
-                                  className="font-black text-white text-xs sm:text-sm md:text-base tracking-wide uppercase truncate"
-                                  title={jogo.mandante_completo || jogo.mandante}
-                                >
-                                  {jogo.mandante}
-                                </p>
-                                <span className="hidden sm:inline-block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                  Mandante
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Centro: Placar e Link de Súmula */}
-                            <div className="shrink-0 text-center px-1 sm:px-2">
-                              <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-950 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-xl border border-slate-800 shadow-inner">
-                                <span className="text-lg sm:text-2xl md:text-3xl font-black text-white">
-                                  {jogo.placar_mandante}
-                                </span>
-                                <span className="text-slate-500 font-bold text-xs sm:text-sm">x</span>
-                                <span className="text-lg sm:text-2xl md:text-3xl font-black text-white">
-                                  {jogo.placar_visitante}
-                                </span>
-                              </div>
-                              {jogo.sumula_url && (
-                                <a
-                                  href={jogo.sumula_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="mt-1 inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-blue-400 hover:text-blue-300 transition"
-                                >
-                                  <FileText className="w-3 h-3" />
-                                  <span className="hidden sm:inline">Súmula (PDF)</span>
-                                  <span className="sm:hidden">Súmula</span>
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </a>
-                              )}
-                            </div>
-
-                            {/* Visitante */}
-                            <div className="flex items-center justify-end gap-2 sm:gap-3 flex-1 min-w-0 text-right">
-                              <div className="min-w-0 flex-1">
-                                <p
-                                  className="font-black text-white text-xs sm:text-sm md:text-base tracking-wide uppercase truncate"
-                                  title={jogo.visitante_completo || jogo.visitante}
-                                >
-                                  {jogo.visitante}
-                                </p>
-                                <span className="hidden sm:inline-block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                  Visitante
-                                </span>
-                              </div>
-                              <img
-                                src={jogo.escudo_visitante}
-                                alt={jogo.visitante}
-                                className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain shrink-0 drop-shadow-md rounded"
-                                onError={(e) => {
-                                  e.currentTarget.src = '/fpfs_shield.png';
-                                }}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Rodapé: Ginásio */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80 mt-2.5 gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setGinasioModalData({
-                                  nome: jogo.ginasio,
-                                  matchParams: {
-                                    mandante: jogo.mandante,
-                                    visitante: jogo.visitante,
-                                    data: jogo.data,
-                                    hora: jogo.hora,
-                                    rodada: formatarRodada(jogo.rodada),
-                                    categoria: categoriaSelecionada,
-                                    ginasio: jogo.ginasio,
-                                  },
-                                });
-                                setGinasioModalOpen(true);
-                              }}
-                              className="flex items-center gap-1.5 truncate max-w-full sm:max-w-[450px] text-left hover:text-blue-300 transition cursor-pointer group"
-                              title="Ver endereço e rotas no Google Maps / Waze"
+                    filtrarListaJogos(jogosAnteriores).map((jogo, idx) => {
+                      const statusJogo = getStatusPartida(jogo);
+                      const isAoVivo = statusJogo === 'aovivo';
+                      return (
+                        <div
+                          key={idx}
+                          className={`rounded-2xl p-3.5 sm:p-5 transition shadow-lg flex flex-col md:flex-row items-stretch md:items-center gap-3 sm:gap-4 ${
+                            isAoVivo
+                              ? 'bg-amber-950/25 border-2 border-amber-500/70 hover:border-amber-400 shadow-amber-950/20 ring-1 ring-amber-400/30'
+                              : 'bg-slate-900/90 border border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          {/* Box de Data Desktop */}
+                          <div
+                            className={`hidden md:flex flex-col items-center justify-center rounded-xl px-4 py-3 min-w-[105px] text-center shrink-0 border ${
+                              isAoVivo
+                                ? 'bg-amber-950/50 border-amber-500/60 text-amber-200'
+                                : 'bg-slate-950/80 border border-slate-800'
+                            }`}
+                          >
+                            <span className="text-3xl font-black text-white leading-none tracking-tight">
+                              {jogo.dia || (jogo.data ? jogo.data.split('/')[0] : '—')}
+                            </span>
+                            <span
+                              className={`text-[11px] font-bold tracking-wider uppercase mt-1 ${
+                                isAoVivo ? 'text-amber-400 font-black' : 'text-slate-400'
+                              }`}
                             >
-                              <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0 group-hover:scale-110 transition" />
-                              <span className="truncate text-slate-300 group-hover:text-blue-300 font-semibold text-[10px] sm:text-[11px] underline underline-offset-2 decoration-slate-700 group-hover:decoration-blue-400">
-                                {limparNomeGinasio(jogo.ginasio || 'Ginásio oficial da FPFS')}
-                              </span>
-                            </button>
-                            <div className="shrink-0 self-end sm:self-auto">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-[10px] sm:text-[11px] font-bold">
-                                <CheckCircle2 className="w-3 h-3 text-blue-400" /> Encerrado
-                              </span>
+                              {isAoVivo ? 'HOJE' : (jogo.mes ? `${jogo.mes}, ${jogo.ano || temporadaSelecionada}` : jogo.data)}
+                            </span>
+                          </div>
+
+                          {/* Área Central do Jogo */}
+                          <div className="flex-1 flex flex-col justify-between min-w-0">
+                            {/* Metadados Superiores com Data no Celular */}
+                            <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800/80 mb-2 sm:mb-3 gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-400 uppercase text-[10px] sm:text-[11px] tracking-wider">
+                                  PAULISTA INICIAÇÃO A1
+                                </span>
+                                {isAoVivo ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black tracking-wide">
+                                    <span className="relative flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                    </span>
+                                    EM ANDAMENTO
+                                  </span>
+                                ) : (
+                                  <span className="md:hidden text-[10px] font-bold text-slate-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                                    📅 {jogo.dia ? `${jogo.dia}/${jogo.mes}` : jogo.data}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border ${
+                                    isAoVivo
+                                      ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
+                                      : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                                  }`}
+                                >
+                                  {formatarRodada(jogo.rodada) || 'Fase Classificatória'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Confronto (Mandante Placar Visitante) */}
+                            <div className="flex items-center justify-between py-1 gap-2 sm:gap-4 md:gap-6">
+                              {/* Mandante */}
+                              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                <img
+                                  src={jogo.escudo_mandante}
+                                  alt={jogo.mandante}
+                                  className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain shrink-0 drop-shadow-md rounded"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/fpfs_shield.png';
+                                  }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="font-black text-white text-xs sm:text-sm md:text-base tracking-wide uppercase truncate"
+                                    title={jogo.mandante_completo || jogo.mandante}
+                                  >
+                                    {jogo.mandante}
+                                  </p>
+                                  <span className="hidden sm:inline-block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                    Mandante
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Centro: Placar e Link de Súmula */}
+                              <div className="shrink-0 text-center px-1 sm:px-2">
+                                <div
+                                  className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-xl border shadow-inner ${
+                                    isAoVivo
+                                      ? 'bg-slate-950/90 border-amber-500/60 ring-1 ring-amber-400/30'
+                                      : 'bg-slate-950 border-slate-800'
+                                  }`}
+                                >
+                                  <span
+                                    className={`text-lg sm:text-2xl md:text-3xl font-black ${
+                                      isAoVivo ? 'text-amber-400' : 'text-white'
+                                    }`}
+                                  >
+                                    {jogo.placar_mandante ?? 0}
+                                  </span>
+                                  <span className={`${isAoVivo ? 'text-amber-500 font-black' : 'text-slate-500 font-bold'} text-xs sm:text-sm`}>
+                                    x
+                                  </span>
+                                  <span
+                                    className={`text-lg sm:text-2xl md:text-3xl font-black ${
+                                      isAoVivo ? 'text-amber-400' : 'text-white'
+                                    }`}
+                                  >
+                                    {jogo.placar_visitante ?? 0}
+                                  </span>
+                                </div>
+                                {isAoVivo ? (
+                                  <span className="text-[9px] font-extrabold text-amber-400 uppercase tracking-wider block mt-1">
+                                    Em Andamento
+                                  </span>
+                                ) : (
+                                  jogo.sumula_url && (
+                                    <a
+                                      href={jogo.sumula_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="mt-1 inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-blue-400 hover:text-blue-300 transition"
+                                    >
+                                      <FileText className="w-3 h-3" />
+                                      <span className="hidden sm:inline">Súmula (PDF)</span>
+                                      <span className="sm:hidden">Súmula</span>
+                                      <ExternalLink className="w-2.5 h-2.5" />
+                                    </a>
+                                  )
+                                )}
+                              </div>
+
+                              {/* Visitante */}
+                              <div className="flex items-center justify-end gap-2 sm:gap-3 flex-1 min-w-0 text-right">
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="font-black text-white text-xs sm:text-sm md:text-base tracking-wide uppercase truncate"
+                                    title={jogo.visitante_completo || jogo.visitante}
+                                  >
+                                    {jogo.visitante}
+                                  </p>
+                                  <span className="hidden sm:inline-block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                    Visitante
+                                  </span>
+                                </div>
+                                <img
+                                  src={jogo.escudo_visitante}
+                                  alt={jogo.visitante}
+                                  className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain shrink-0 drop-shadow-md rounded"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/fpfs_shield.png';
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Rodapé: Ginásio */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80 mt-2.5 gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGinasioModalData({
+                                    nome: jogo.ginasio,
+                                    matchParams: {
+                                      mandante: jogo.mandante,
+                                      visitante: jogo.visitante,
+                                      data: jogo.data,
+                                      hora: jogo.hora,
+                                      rodada: formatarRodada(jogo.rodada),
+                                      categoria: categoriaSelecionada,
+                                      ginasio: jogo.ginasio,
+                                    },
+                                  });
+                                  setGinasioModalOpen(true);
+                                }}
+                                className="flex items-center gap-1.5 truncate max-w-full sm:max-w-[450px] text-left hover:text-blue-300 transition cursor-pointer group"
+                                title="Ver endereço e rotas no Google Maps / Waze"
+                              >
+                                <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0 group-hover:scale-110 transition" />
+                                <span className="truncate text-slate-300 group-hover:text-blue-300 font-semibold text-[10px] sm:text-[11px] underline underline-offset-2 decoration-slate-700 group-hover:decoration-blue-400">
+                                  {limparNomeGinasio(jogo.ginasio || 'Ginásio oficial da FPFS')}
+                                </span>
+                              </button>
+                              <div className="shrink-0 self-end sm:self-auto flex items-center gap-2">
+                                {isAoVivo && (
+                                  <button
+                                    type="button"
+                                    onClick={() => abrirModalPlacar(jogo)}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[10px] sm:text-[11px] font-bold transition cursor-pointer active:scale-95"
+                                    title="Atualizar placar em tempo real"
+                                  >
+                                    <Flame className="w-3 h-3 text-amber-400" />
+                                    <span>Placar</span>
+                                  </button>
+                                )}
+                                {isAoVivo ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] sm:text-[11px] font-black">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                                    ANDAMENTO
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-[10px] sm:text-[11px] font-bold">
+                                    <CheckCircle2 className="w-3 h-3 text-blue-400" /> Encerrado
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}
@@ -1491,6 +1696,14 @@ export default function CampeonatosPage() {
         onClose={() => setGinasioModalOpen(false)}
         ginasioNome={ginasioModalData.nome}
         matchParams={ginasioModalData.matchParams}
+      />
+
+      {/* Modal de Atualização de Placar Ao Vivo */}
+      <PlacarAoVivoModal
+        isOpen={placarModalOpen}
+        onClose={() => setPlacarModalOpen(false)}
+        jogo={placarJogoSelecionado}
+        onSalvar={handleSalvarPlacar}
       />
     </div>
   );

@@ -93,6 +93,16 @@ export const campeonatosService = {
         jogos: JogoItem[];
       }>('/api/campeonatos/jogos', { params: { temporada, categoria } })
       .then((r) => r.data),
+  atualizarPlacarJogo: (dados: {
+    temporada: number;
+    categoria: string;
+    mandante: string;
+    visitante: string;
+    data?: string;
+    placar_mandante?: number | null;
+    placar_visitante?: number | null;
+    status: string;
+  }) => api.post<{ status: string; mensagem: string; jogo: JogoItem }>('/api/campeonatos/jogos/atualizar-placar', dados).then((r) => r.data),
   obterArtilharia: (temporada: number, categoria: string) =>
     api
       .get<{
