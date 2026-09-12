@@ -17,7 +17,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title='Intelligent Futsal Scout API',
     description='API para o sistema de scout do Campeonato Paulista de Futsal - Iniciacao',
-    version='1.0.0',
+    version='2.4.0',
 )
 
 # CORS - permite frontend React local e em produção

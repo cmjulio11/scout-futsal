@@ -4,6 +4,9 @@ export default function Footer() {
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center">
         <p className="text-slate-400 text-sm font-medium">
           <span className="text-blue-400 font-bold">Intelligent Futsal Scout</span>
+          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500/15 text-blue-400 border border-blue-500/30">
+            v2.4
+          </span>
           <span className="text-slate-500"> | desenvolvido por </span>
           <span className="text-slate-200 font-semibold tracking-wide uppercase">JÚLIO MARTINS</span>
         </p>
