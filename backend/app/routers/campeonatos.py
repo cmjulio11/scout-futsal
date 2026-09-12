@@ -141,7 +141,7 @@ def obter_confrontos_unificados(
             or (c.get("dia") == f"{now.day:02d}")
         )
         
-        if tem_aovivo or (is_hoje and not todos_encerrados):
+        if tem_aovivo:
             c["status_geral"] = "aovivo"
         elif todos_encerrados:
             c["status_geral"] = "encerrado"

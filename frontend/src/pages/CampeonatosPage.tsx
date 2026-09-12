@@ -335,7 +335,7 @@ export default function CampeonatosPage() {
     });
   }, [jogos, confrontos, categoriaSelecionada]);
 
-  const isJogoHoje = (j: JogoItem) => {
+  const isJogoHoje = (j: { data?: string; dia?: string; mes?: string }) => {
     if (!j.data) return false;
     const hoje = new Date();
     const diaHoje = String(hoje.getDate()).padStart(2, '0');
@@ -359,6 +359,19 @@ export default function CampeonatosPage() {
     return false;
   };
 
+  const getJogoTimestamp = (j: { data?: string; ano?: string; dia?: string; mes?: string; rodada_num?: number }): number => {
+    if (j.data) {
+      const parts = j.data.split('/');
+      if (parts.length >= 2) {
+        const d = parseInt(parts[0], 10) || 1;
+        const m = parseInt(parts[1], 10) || 1;
+        const y = parseInt(j.ano || '2026', 10) || 2026;
+        return new Date(y, m - 1, d).getTime();
+      }
+    }
+    return (j.rodada_num || 0) * 86400000;
+  };
+
   const getStatusPartida = (j: JogoItem): 'aovivo' | 'encerrado' | 'agendado' => {
     if (j.status === 'Em Andamento' || j.status === 'Ao Vivo' || j.status === 'Andamento') {
       return 'aovivo';
@@ -366,10 +379,8 @@ export default function CampeonatosPage() {
     if (j.status === 'Encerrado' || (j.sumula_url && j.placar_mandante !== null)) {
       return 'encerrado';
     }
-    if (isJogoHoje(j)) {
-      return 'aovivo';
-    }
-    if (j.placar_mandante !== null && j.placar_visitante !== null) {
+    if (j.placar_mandante !== null && j.placar_mandante !== undefined && 
+        j.placar_visitante !== null && j.placar_visitante !== undefined) {
       return 'encerrado';
     }
     return 'agendado';
@@ -378,18 +389,44 @@ export default function CampeonatosPage() {
   const jogosProximos = useMemo(() => {
     const lista = jogos.filter((j) => getStatusPartida(j) !== 'encerrado');
     return [...lista].sort((a, b) => {
+      // 1. Ao Vivo primeiro
       const aVivo = getStatusPartida(a) === 'aovivo' ? 1 : 0;
       const bVivo = getStatusPartida(b) === 'aovivo' ? 1 : 0;
-      return bVivo - aVivo;
+      if (bVivo !== aVivo) return bVivo - aVivo;
+
+      // 2. Jogos de hoje primeiro
+      const aHoje = isJogoHoje(a) ? 1 : 0;
+      const bHoje = isJogoHoje(b) ? 1 : 0;
+      if (bHoje !== aHoje) return bHoje - aHoje;
+
+      // 3. Ordem cronológica crescente (do mais próximo para o mais distante)
+      const diffTime = getJogoTimestamp(a) - getJogoTimestamp(b);
+      if (diffTime !== 0) return diffTime;
+
+      return (a.rodada_num || 0) - (b.rodada_num || 0);
     });
   }, [jogos]);
 
   const jogosAnteriores = useMemo(() => {
-    const lista = jogos.filter((j) => getStatusPartida(j) === 'encerrado' || getStatusPartida(j) === 'aovivo');
+    // Apenas jogos encerrados ou partidas com placar ativo em andamento
+    const lista = jogos.filter((j) => {
+      const status = getStatusPartida(j);
+      if (status === 'encerrado') return true;
+      if (status === 'aovivo' && (j.placar_mandante !== null || j.placar_visitante !== null)) return true;
+      return false;
+    });
+
     return [...lista].sort((a, b) => {
+      // 1. Ao Vivo no topo se houver
       const aVivo = getStatusPartida(a) === 'aovivo' ? 1 : 0;
       const bVivo = getStatusPartida(b) === 'aovivo' ? 1 : 0;
-      return bVivo - aVivo;
+      if (bVivo !== aVivo) return bVivo - aVivo;
+
+      // 2. Ordem estritamente DECRESCENTE (mais recente primeiro: rodada 23, 22, 21 ... até 1)
+      const diffTime = getJogoTimestamp(b) - getJogoTimestamp(a);
+      if (diffTime !== 0) return diffTime;
+
+      return (b.rodada_num || 0) - (a.rodada_num || 0);
     });
   }, [jogos]);
 
@@ -410,7 +447,16 @@ export default function CampeonatosPage() {
     return [...lista].sort((a, b) => {
       const aVivo = a.status_geral === 'aovivo' ? 1 : 0;
       const bVivo = b.status_geral === 'aovivo' ? 1 : 0;
-      return bVivo - aVivo;
+      if (bVivo !== aVivo) return bVivo - aVivo;
+
+      const aHoje = isJogoHoje(a) ? 1 : 0;
+      const bHoje = isJogoHoje(b) ? 1 : 0;
+      if (bHoje !== aHoje) return bHoje - aHoje;
+
+      const diffTime = getJogoTimestamp(a) - getJogoTimestamp(b);
+      if (diffTime !== 0) return diffTime;
+
+      return (a.rodada_num || 0) - (b.rodada_num || 0);
     });
   }, [confrontos]);
 
@@ -419,7 +465,13 @@ export default function CampeonatosPage() {
     return [...lista].sort((a, b) => {
       const aVivo = a.status_geral === 'aovivo' ? 1 : 0;
       const bVivo = b.status_geral === 'aovivo' ? 1 : 0;
-      return bVivo - aVivo;
+      if (bVivo !== aVivo) return bVivo - aVivo;
+
+      // Ordem decrescente (mais recente primeiro)
+      const diffTime = getJogoTimestamp(b) - getJogoTimestamp(a);
+      if (diffTime !== 0) return diffTime;
+
+      return (b.rodada_num || 0) - (a.rodada_num || 0);
     });
   }, [confrontos]);
 
@@ -1735,7 +1787,7 @@ export default function CampeonatosPage() {
                                       isAoVivo ? 'text-amber-400' : 'text-white'
                                     }`}
                                   >
-                                    {jogo.placar_mandante ?? 0}
+                                    {jogo.placar_mandante !== null && jogo.placar_mandante !== undefined ? jogo.placar_mandante : '—'}
                                   </span>
                                   <span className={`${isAoVivo ? 'text-amber-500 font-black' : 'text-slate-500 font-bold'} text-xs sm:text-sm`}>
                                     x
@@ -1745,7 +1797,7 @@ export default function CampeonatosPage() {
                                       isAoVivo ? 'text-amber-400' : 'text-white'
                                     }`}
                                   >
-                                    {jogo.placar_visitante ?? 0}
+                                    {jogo.placar_visitante !== null && jogo.placar_visitante !== undefined ? jogo.placar_visitante : '—'}
                                   </span>
                                 </div>
                                 {isAoVivo ? (
