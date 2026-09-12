@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, Enum as SAEnum
-from sqlalchemy.dialects.sqlite import TEXT
+from sqlalchemy import Column, String, Boolean, DateTime, Text, Enum as SAEnum
 from .database import Base
 import enum
 
@@ -14,7 +13,7 @@ class Perfil(str, enum.Enum):
 class Usuario(Base):
     __tablename__ = 'usuarios'
 
-    id = Column(TEXT, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(Text, primary_key=True, default=lambda: str(uuid.uuid4()))
     nome = Column(String(120), nullable=False)
     email = Column(String(200), unique=True, nullable=False, index=True)
     senha_hash = Column(String(200), nullable=False)

@@ -85,18 +85,21 @@ def criar_admin_inicial():
             print(f'[INIT] Administrador atualizado e ativo: {admin_email}')
 
         # Garante usuários de comissão técnica padrão (Pulo Campinas e Palmeiras)
+        pulo_password = os.getenv('PULO_PASSWORD', 'Pulo@2026')
+        palmeiras_password = os.getenv('PALMEIRAS_PASSWORD', '123456')
+
         usuarios_padrao = [
             {
                 'nome': 'Pulo',
                 'email': 'pulo@pulofc.com.br',
-                'senha': admin_password,
+                'senha': pulo_password,
                 'perfil': models.Perfil.comissao_tecnica,
                 'clube': 'PULO CAMPINAS',
             },
             {
                 'nome': 'Vinicius',
                 'email': 'palmeiras@palmeiras.com.br',
-                'senha': admin_password,
+                'senha': palmeiras_password,
                 'perfil': models.Perfil.comissao_tecnica,
                 'clube': 'PALMEIRAS',
             },
@@ -115,6 +118,11 @@ def criar_admin_inicial():
                 db.add(novo_u)
                 db.commit()
                 print(f"[INIT] Usuário de comissão técnica criado: {u['email']} ({u['clube']})")
+            else:
+                u_existe.senha_hash = hash_senha(u['senha'])
+                u_existe.ativo = True
+                db.commit()
+                print(f"[INIT] Usuário de comissão técnica sincronizado: {u['email']}")
     finally:
         db.close()
 

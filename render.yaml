@@ -15,5 +15,9 @@ services:
         value: Pickup@98
       - key: ADMIN_NOME
         value: Administrador
+      - key: PULO_PASSWORD
+        value: Pulo@2026
+      - key: PALMEIRAS_PASSWORD
+        value: "123456"
       - key: ALLOWED_ORIGINS
         value: "*"
