@@ -111,6 +111,8 @@ def obter_confrontos_unificados(
                     "ginasio": j.get("ginasio"),
                     "rodada": j.get("rodada"),
                     "rodada_num": j.get("rodada_num", 1),
+                    "fase": j.get("fase"),
+                    "chave": j.get("chave"),
                     "status_geral": "agendado",
                     "categorias": {}
                 }
@@ -573,7 +575,7 @@ def sincronizar_com_federacao(
     return resultado
 
 
-def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: List[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Constrói as Chaves Ouro, Prata e Bronze a partir de uma lista ranqueada oficial (24 clubes).
     Cada chave possui 8 equipes e 4 confrontos de Quartas de Final:
@@ -623,6 +625,45 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]]) -> Dict[str,
                 "vantagem": times[3].get("clube"),
             },
         ]
+
+        # Associação com jogos reais agendados/realizados da FPFS
+        if jogos_cat:
+            for q in quartas:
+                tm = q["time_mandante"].get("clube", "").strip().lower()
+                tv = q["time_visitante"].get("clube", "").strip().lower()
+                jogo_oficial = None
+                for j in jogos_cat:
+                    # Garante que o jogo associado seja do mata-mata correspondente à chave
+                    if j.get("fase") == "Fase Classificatória":
+                        continue
+                    j_chave = (j.get("chave") or "").upper()
+                    if j_chave and j_chave != nome.upper():
+                        continue
+
+                    jm = j.get("mandante", "").strip().lower()
+                    jv = j.get("visitante", "").strip().lower()
+                    c1 = (tm in jm or jm in tm)
+                    c2 = (tv in jv or jv in tv)
+                    c3 = (tm in jv or jv in tm)
+                    c4 = (tv in jm or jm in tv)
+                    if (c1 and c2) or (c3 and c4):
+                        jogo_oficial = {
+                            "data": j.get("data"),
+                            "dia": j.get("dia"),
+                            "mes": j.get("mes"),
+                            "hora": j.get("hora"),
+                            "ginasio": j.get("ginasio"),
+                            "status": j.get("status"),
+                            "placar_mandante": j.get("placar_mandante"),
+                            "placar_visitante": j.get("placar_visitante"),
+                            "sumula_url": j.get("sumula_url"),
+                            "rodada": j.get("rodada"),
+                            "mandante_oficial": j.get("mandante"),
+                            "visitante_oficial": j.get("visitante"),
+                        }
+                        break
+                q["jogo_oficial"] = jogo_oficial
+
         return {
             "nome": nome,
             "cor": cor,
@@ -660,13 +701,14 @@ def obter_playoffs_chaveamento(
     # Chaveamento Torneio União
     playoffs_uniao = _montar_estrutura_playoffs(ranking_geral)
 
-    # Chaveamento por Categoria
+    # Chaveamento por Categoria com amarrações de jogos oficiais
     playoffs_categorias = {}
     for cat in ["Sub-7", "Sub-8", "Sub-9", "Sub-10"]:
         cat_lista = classificacao.get(cat, [])
+        cat_jogos = jogos.get(cat, [])
         playoffs_categorias[cat] = {
             "ranking": cat_lista,
-            "chaves": _montar_estrutura_playoffs(cat_lista),
+            "chaves": _montar_estrutura_playoffs(cat_lista, cat_jogos),
         }
 
     # Confrontos da 23ª Rodada (Agregados para o Torneio União + detalhes por categoria)

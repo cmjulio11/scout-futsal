@@ -8,13 +8,16 @@
  */
 export function formatarRodada(rodada?: string | number | null): string {
   if (!rodada) return '';
-  const str = String(rodada);
+  const str = String(rodada).trim();
+  if (/(quarta|semi|final|oitava|bronze|prata|ouro|playoff|mata)/i.test(str)) {
+    return str;
+  }
   const nums = str.match(/\d+/g);
   if (nums && nums.length > 0) {
     const num = parseInt(nums.join(''), 10);
     return `${num}ª Rodada`;
   }
-  return str.trim();
+  return str;
 }
 
 /**

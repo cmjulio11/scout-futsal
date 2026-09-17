@@ -136,10 +136,13 @@ def formatar_nome_clube(nome: str) -> str:
 def formatar_rodada(val: Any) -> str:
     if not val:
         return ""
-    nums = re.findall(r'\d+', str(val))
+    s = str(val).strip()
+    if any(k in s.lower() for k in ["quarta", "semi", "final", "oitava", "bronze", "prata", "ouro", "mata"]):
+        return s
+    nums = re.findall(r'\d+', s)
     if nums:
         return f"{int(''.join(nums))}ª Rodada"
-    return str(val).strip()
+    return s
 
 def _fetch_url(url: str) -> str:
     req = urllib.request.Request(
@@ -264,89 +267,177 @@ def parse_classificacao(evento_id: int) -> List[Dict[str, Any]]:
 def parse_jogos(evento_id: int) -> List[Dict[str, Any]]:
     html = _fetch_url(f"{BASE_URL}/evento/{evento_id}/jogos")
     soup = BeautifulSoup(html, "html.parser")
-    table = soup.find("table")
-    if not table:
+
+    tab_panes = soup.find_all("div", class_="tab-pane")
+
+    # Se não houver tab-panes (fallback simples), usa todas as tabelas
+    panes_data = []
+    if tab_panes:
+        for pane in tab_panes:
+            pane_id = pane.get("id")
+            pill = soup.find("a", href=f"#{pane_id}") if pane_id else None
+            pill_text = pill.get_text(strip=True) if pill else ""
+            table = pane.find("table")
+            if table:
+                panes_data.append((pill_text, table))
+    else:
+        for t in soup.find_all("table"):
+            panes_data.append(("", t))
+
+    if not panes_data:
         return []
-    
+
     jogos = []
-    rows = table.find_all("tr")[1:]
-    
-    for r in rows:
-        tds = r.find_all("td")
-        if len(tds) < 4:
-            continue
-            
-        data = tds[0].get_text(strip=True)
-        hora = tds[1].get_text(strip=True)
-        ginasio = tds[2].get_text(strip=True)
-        res_td = tds[3]
-        
-        sumula_a = res_td.find("a", href=lambda h: h and "sumula" in h)
-        sumula_url = sumula_a["href"] if sumula_a else None
-        
-        raw_text = res_td.get_text(" ", strip=True)
-        clean_text = re.sub(r'Ver\s+S[?u]mula', '', raw_text, flags=re.I).strip()
-        
-        match = re.search(r'^(.*?)\s*(\d+)\s*[xX]\s*(\d+)\s*(.*?)$', clean_text)
-        if match:
-            mandante = match.group(1).strip()
-            placar_m = int(match.group(2))
-            placar_v = int(match.group(3))
-            visitante = match.group(4).strip()
-            status = "Encerrado"
+    chaves_vistas = set()
+    classificatoria_count = 0
+
+    for pill_text, table in panes_data:
+        pill_upper = pill_text.upper()
+
+        # Determina fase, chave e rodada da aba
+        if "CLASSIFICATORIA" in pill_upper or not pill_text:
+            fase = "Fase Classificatória"
+            is_classificatoria = True
+            chave_fase = None
+            rodada_base = None
         else:
-            parts = re.split(r'\s+[xX]\s+', clean_text)
-            mandante = parts[0].strip() if len(parts) > 0 else clean_text
-            visitante = parts[1].strip() if len(parts) > 1 else ""
-            placar_m = None
-            placar_v = None
-            status = "Agendado"
+            is_classificatoria = False
+            # Determina Chave
+            if "BRONZE" in pill_upper:
+                chave_fase = "BRONZE"
+            elif "PRATA" in pill_upper:
+                chave_fase = "PRATA"
+            elif "OURO" in pill_upper:
+                chave_fase = "OURO"
+            else:
+                chave_fase = None
 
-        # Extra??o limpa de dia e m?s
-        dia = ""
-        mes = ""
-        ano = "2026"
-        data_match = re.search(r'(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?', data)
-        if data_match:
-            dia = data_match.group(1).zfill(2)
-            mes_num = int(data_match.group(2))
-            meses = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
-            if 1 <= mes_num <= 12:
-                mes = meses[mes_num - 1]
-            if data_match.group(3):
-                ano_val = data_match.group(3)
-                ano = f"20{ano_val}" if len(ano_val) == 2 else ano_val
+            # Determina Tipo de Fase
+            if "QUART" in pill_upper:
+                fase = "Quartas de Final"
+                rodada_base = f"Quartas de Final ({chave_fase.title()})" if chave_fase else "Quartas de Final"
+                rodada_num_fase = 24
+            elif "SEMI" in pill_upper:
+                fase = "Semifinal"
+                rodada_base = f"Semifinal ({chave_fase.title()})" if chave_fase else "Semifinal"
+                rodada_num_fase = 25
+            elif "FINAL" in pill_upper:
+                fase = "Final"
+                rodada_base = f"Final ({chave_fase.title()})" if chave_fase else "Final"
+                rodada_num_fase = 26
+            else:
+                fase = pill_text.title()
+                rodada_base = pill_text.title()
+                rodada_num_fase = 24
 
-        mandante_formatado = formatar_nome_clube(mandante)
-        visitante_formatado = formatar_nome_clube(visitante)
-        escudo_mandante = resolver_escudo_local(mandante)
-        escudo_visitante = resolver_escudo_local(visitante)
+        rows = table.find_all("tr")[1:]
+        for r in rows:
+            tds = r.find_all("td")
+            if len(tds) < 4:
+                continue
 
-        # Cálculo da Rodada (12 jogos por rodada com 24 clubes)
-        rodada_num = (len(jogos) // 12) + 1
-        rodada = f"{rodada_num}ª Rodada"
+            data = tds[0].get_text(strip=True)
+            hora = tds[1].get_text(strip=True).replace('?', '').strip()
+            ginasio = tds[2].get_text(strip=True)
+            res_td = tds[3]
 
-        jogos.append({
-            "data": data,
-            "dia": dia,
-            "mes": mes,
-            "ano": ano,
-            "hora": hora.replace('?', '').strip(),
-            "ginasio": ginasio,
-            "mandante": mandante_formatado,
-            "mandante_completo": mandante,
-            "escudo_mandante": escudo_mandante,
-            "placar_mandante": placar_m,
-            "placar_visitante": placar_v,
-            "visitante": visitante_formatado,
-            "visitante_completo": visitante,
-            "escudo_visitante": escudo_visitante,
-            "status": status,
-            "rodada": rodada,
-            "rodada_num": rodada_num,
-            "sumula_url": sumula_url,
-        })
-        
+            sumula_a = res_td.find("a", href=lambda h: h and "sumula" in h)
+            sumula_url = sumula_a["href"] if sumula_a else None
+
+            # Extração limpa dos nomes dos clubes
+            nomes = [span.get_text(strip=True) for span in res_td.find_all("span", class_="nome_clube")]
+            if len(nomes) >= 2:
+                mandante = nomes[0].strip()
+                visitante = nomes[1].strip()
+            else:
+                raw_text = res_td.get_text(" ", strip=True)
+                clean_text = re.sub(r'Ver\s+S[?u]mula', '', raw_text, flags=re.I).strip()
+                match = re.search(r'^(.*?)\s*(\d+)\s*[xX]\s*(\d+)\s*(.*?)$', clean_text)
+                if match:
+                    mandante = match.group(1).strip()
+                    visitante = match.group(4).strip()
+                else:
+                    parts = re.split(r'\s+[xX]\s+', clean_text)
+                    mandante = parts[0].strip() if len(parts) > 0 else clean_text
+                    visitante = parts[1].strip() if len(parts) > 1 else ""
+
+            # Extração de resultado / placar
+            result_span = res_td.find("span", class_="result")
+            result_text = result_span.get_text(strip=True) if result_span else ""
+            score_match = re.search(r'(\d+)\s*[xX]\s*(\d+)', result_text)
+            if score_match:
+                placar_m = int(score_match.group(1))
+                placar_v = int(score_match.group(2))
+                status = "Encerrado"
+            else:
+                # Fallback caso não esteja no span.result
+                match_text = re.search(r'(\d+)\s*[xX]\s*(\d+)', res_td.get_text(strip=True))
+                if match_text and "Ver Súmula" in res_td.get_text():
+                    placar_m = int(match_text.group(1))
+                    placar_v = int(match_text.group(2))
+                    status = "Encerrado"
+                else:
+                    placar_m = None
+                    placar_v = None
+                    status = "Agendado"
+
+            # Prevenção de duplicatas
+            chave_duelo = (data, hora, mandante.lower(), visitante.lower())
+            if chave_duelo in chaves_vistas:
+                continue
+            chaves_vistas.add(chave_duelo)
+
+            # Extração limpa de dia e mês
+            dia = ""
+            mes = ""
+            ano = "2026"
+            data_match = re.search(r'(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?', data)
+            if data_match:
+                dia = data_match.group(1).zfill(2)
+                mes_num = int(data_match.group(2))
+                meses = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
+                if 1 <= mes_num <= 12:
+                    mes = meses[mes_num - 1]
+                if data_match.group(3):
+                    ano_val = data_match.group(3)
+                    ano = f"20{ano_val}" if len(ano_val) == 2 else ano_val
+
+            mandante_formatado = formatar_nome_clube(mandante)
+            visitante_formatado = formatar_nome_clube(visitante)
+            escudo_mandante = resolver_escudo_local(mandante)
+            escudo_visitante = resolver_escudo_local(visitante)
+
+            if is_classificatoria:
+                rodada_num = (classificatoria_count // 12) + 1
+                rodada = f"{rodada_num}ª Rodada"
+                classificatoria_count += 1
+            else:
+                rodada = rodada_base
+                rodada_num = rodada_num_fase
+
+            jogos.append({
+                "data": data,
+                "dia": dia,
+                "mes": mes,
+                "ano": ano,
+                "hora": hora,
+                "ginasio": ginasio,
+                "mandante": mandante_formatado,
+                "mandante_completo": mandante,
+                "escudo_mandante": escudo_mandante,
+                "placar_mandante": placar_m,
+                "placar_visitante": placar_v,
+                "visitante": visitante_formatado,
+                "visitante_completo": visitante,
+                "escudo_visitante": escudo_visitante,
+                "status": status,
+                "rodada": rodada,
+                "rodada_num": rodada_num,
+                "sumula_url": sumula_url,
+                "fase": fase,
+                "chave": chave_fase,
+            })
+
     return jogos
 
 def parse_artilharia(evento_id: int) -> List[Dict[str, Any]]:

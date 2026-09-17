@@ -77,6 +77,8 @@ export interface JogoItem {
   rodada_num?: number;
   sumula_url: string | null;
   categoria?: string;
+  fase?: string;
+  chave?: 'OURO' | 'PRATA' | 'BRONZE' | null;
 }
 
 export interface ConfrontoCategoriaItem {
@@ -103,6 +105,8 @@ export interface ConfrontoItem {
   ginasio: string;
   rodada?: string;
   rodada_num?: number;
+  fase?: string;
+  chave?: 'OURO' | 'PRATA' | 'BRONZE' | null;
   status_geral: 'aovivo' | 'encerrado' | 'agendado';
   categorias: Record<string, ConfrontoCategoriaItem>;
 }
@@ -413,6 +417,21 @@ export interface PlayoffTime {
   vitorias?: number;
 }
 
+export interface PlayoffJogoOficial {
+  data: string;
+  dia?: string;
+  mes?: string;
+  hora: string;
+  ginasio: string;
+  status: string;
+  placar_mandante?: number | null;
+  placar_visitante?: number | null;
+  sumula_url?: string | null;
+  rodada?: string;
+  mandante_oficial?: string;
+  visitante_oficial?: string;
+}
+
 export interface PlayoffConfronto {
   id: string;
   titulo: string;
@@ -420,6 +439,7 @@ export interface PlayoffConfronto {
   time_mandante: PlayoffTime;
   time_visitante: PlayoffTime;
   vantagem?: string;
+  jogo_oficial?: PlayoffJogoOficial | null;
 }
 
 export interface PlayoffChave {

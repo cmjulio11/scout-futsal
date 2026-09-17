@@ -329,9 +329,14 @@ export default function CampeonatosPage() {
       });
     }
     return Array.from(setR).sort((a, b) => {
+      const isMataA = /(quarta|semi|final|bronze|prata|ouro|playoff|mata)/i.test(a);
+      const isMataB = /(quarta|semi|final|bronze|prata|ouro|playoff|mata)/i.test(b);
+      if (isMataA && !isMataB) return 1;
+      if (!isMataA && isMataB) return -1;
       const numA = parseInt(a.replace(/\D/g, '')) || 0;
       const numB = parseInt(b.replace(/\D/g, '')) || 0;
-      return numA - numB;
+      if (numA !== numB) return numA - numB;
+      return a.localeCompare(b);
     });
   }, [jogos, confrontos, categoriaSelecionada]);
 
@@ -519,15 +524,29 @@ export default function CampeonatosPage() {
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span
-              className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border ${
-                isConfrontoAoVivo
-                  ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
-                  : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
-              }`}
-            >
-              {formatarRodada(confronto.rodada) || 'Rodada'}
-            </span>
+            {confronto.chave === 'BRONZE' || /bronze/i.test(confronto.rodada || '') ? (
+              <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border text-orange-400 bg-orange-500/15 border-orange-500/30 flex items-center gap-1">
+                <span>🥉</span> {formatarRodada(confronto.rodada)}
+              </span>
+            ) : confronto.chave === 'PRATA' || /prata/i.test(confronto.rodada || '') ? (
+              <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border text-slate-300 bg-slate-500/15 border-slate-500/30 flex items-center gap-1">
+                <span>🥈</span> {formatarRodada(confronto.rodada)}
+              </span>
+            ) : confronto.chave === 'OURO' || /ouro/i.test(confronto.rodada || '') ? (
+              <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border text-amber-400 bg-amber-500/15 border-amber-500/30 flex items-center gap-1">
+                <span>🥇</span> {formatarRodada(confronto.rodada)}
+              </span>
+            ) : (
+              <span
+                className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border ${
+                  isConfrontoAoVivo
+                    ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
+                    : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                }`}
+              >
+                {formatarRodada(confronto.rodada) || 'Rodada'}
+              </span>
+            )}
           </div>
         </div>
 
@@ -1451,15 +1470,29 @@ export default function CampeonatosPage() {
                                 )}
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span
-                                  className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border ${
-                                    isAoVivo
-                                      ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
-                                      : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
-                                  }`}
-                                >
-                                  {formatarRodada(jogo.rodada) || '1ª Rodada'}
-                                </span>
+                                {jogo.chave === 'BRONZE' || /bronze/i.test(jogo.rodada || '') ? (
+                                  <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border text-orange-400 bg-orange-500/15 border-orange-500/30 flex items-center gap-1">
+                                    <span>🥉</span> {formatarRodada(jogo.rodada)}
+                                  </span>
+                                ) : jogo.chave === 'PRATA' || /prata/i.test(jogo.rodada || '') ? (
+                                  <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border text-slate-300 bg-slate-500/15 border-slate-500/30 flex items-center gap-1">
+                                    <span>🥈</span> {formatarRodada(jogo.rodada)}
+                                  </span>
+                                ) : jogo.chave === 'OURO' || /ouro/i.test(jogo.rodada || '') ? (
+                                  <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border text-amber-400 bg-amber-500/15 border-amber-500/30 flex items-center gap-1">
+                                    <span>🥇</span> {formatarRodada(jogo.rodada)}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border ${
+                                      isAoVivo
+                                        ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
+                                        : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                                    }`}
+                                  >
+                                    {formatarRodada(jogo.rodada) || '1ª Rodada'}
+                                  </span>
+                                )}
                               </div>
                             </div>
 
@@ -1736,15 +1769,29 @@ export default function CampeonatosPage() {
                                 )}
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span
-                                  className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border ${
-                                    isAoVivo
-                                      ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
-                                      : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
-                                  }`}
-                                >
-                                  {formatarRodada(jogo.rodada) || 'Fase Classificatória'}
-                                </span>
+                                {jogo.chave === 'BRONZE' || /bronze/i.test(jogo.rodada || '') ? (
+                                  <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border text-orange-400 bg-orange-500/15 border-orange-500/30 flex items-center gap-1">
+                                    <span>🥉</span> {formatarRodada(jogo.rodada)}
+                                  </span>
+                                ) : jogo.chave === 'PRATA' || /prata/i.test(jogo.rodada || '') ? (
+                                  <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border text-slate-300 bg-slate-500/15 border-slate-500/30 flex items-center gap-1">
+                                    <span>🥈</span> {formatarRodada(jogo.rodada)}
+                                  </span>
+                                ) : jogo.chave === 'OURO' || /ouro/i.test(jogo.rodada || '') ? (
+                                  <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border text-amber-400 bg-amber-500/15 border-amber-500/30 flex items-center gap-1">
+                                    <span>🥇</span> {formatarRodada(jogo.rodada)}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md border ${
+                                      isAoVivo
+                                        ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
+                                        : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                                    }`}
+                                  >
+                                    {formatarRodada(jogo.rodada) || 'Fase Classificatória'}
+                                  </span>
+                                )}
                               </div>
                             </div>
 

@@ -945,6 +945,18 @@ export default function PlayoffsPage() {
                             )}
                           </div>
                         </button>
+
+                        {/* Informação Oficial do Jogo Agendado / Realizado */}
+                        {qf.jogo_oficial && (
+                          <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
+                            <span className="flex items-center gap-1 font-bold text-blue-400">
+                              <span>📅</span> {qf.jogo_oficial.data} às {qf.jogo_oficial.hora}
+                            </span>
+                            <span className="truncate max-w-[150px] text-[9px] text-slate-400 font-medium" title={qf.jogo_oficial.ginasio}>
+                              📍 {qf.jogo_oficial.ginasio.replace(/GIN[ÁA]SIO/i, '').trim()}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
