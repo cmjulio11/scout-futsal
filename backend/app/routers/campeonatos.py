@@ -587,88 +587,194 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
       SF1: Vencedor QF1 x Vencedor QF4
       SF2: Vencedor QF2 x Vencedor QF3
     """
+    def _processar_confronto(m_time: Optional[Dict[str, Any]], v_time: Optional[Dict[str, Any]], titulo: str, id_conf: str, fase_nome: str, time_tipo: str = "QF", nome_chave: str = "BRONZE") -> Dict[str, Any]:
+        if not m_time and not v_time:
+            return {
+                "id": id_conf,
+                "titulo": titulo,
+                "fase": fase_nome,
+                "chave": nome_chave.upper(),
+                "time_mandante": None,
+                "time_visitante": None,
+                "vantagem": None,
+                "status_confronto": "A_DEFINIR",
+                "vencedor": None,
+                "perdedor": None,
+                "placar_mandante": None,
+                "placar_visitante": None,
+                "motivo_vitoria": None,
+                "jogo_oficial": None,
+            }
+        
+        if not m_time or not v_time:
+            vantagem = (m_time or v_time).get("clube")
+            return {
+                "id": id_conf,
+                "titulo": titulo,
+                "fase": fase_nome,
+                "chave": nome_chave.upper(),
+                "time_mandante": m_time,
+                "time_visitante": v_time,
+                "vantagem": vantagem,
+                "status_confronto": "A_DEFINIR",
+                "vencedor": None,
+                "perdedor": None,
+                "placar_mandante": None,
+                "placar_visitante": None,
+                "motivo_vitoria": None,
+                "jogo_oficial": None,
+            }
+
+        pos_m = m_time.get("posicao", 999)
+        pos_v = v_time.get("posicao", 999)
+        if pos_m > pos_v and time_tipo != "QF":
+            m_time, v_time = v_time, m_time
+            pos_m, pos_v = pos_v, pos_m
+
+        vantagem = m_time.get("clube")
+        tm = m_time.get("clube", "").strip().lower()
+        tv = v_time.get("clube", "").strip().lower()
+        jogo_oficial = None
+
+        if jogos_cat:
+            for j in jogos_cat:
+                if j.get("fase") == "Fase Classificatória":
+                    continue
+                j_chave = (j.get("chave") or "").upper()
+                if j_chave and j_chave != nome_chave.upper():
+                    continue
+                
+                j_rodada = (j.get("rodada") or "").lower()
+                if time_tipo == "QF" and ("semi" in j_rodada or ("final" in j_rodada and "quarta" not in j_rodada)):
+                    continue
+                if time_tipo == "SF" and ("quarta" in j_rodada or ("final" in j_rodada and "semi" not in j_rodada)):
+                    continue
+                if time_tipo == "FINAL" and ("quarta" in j_rodada or "semi" in j_rodada):
+                    continue
+
+                jm = j.get("mandante", "").strip().lower()
+                jv = j.get("visitante", "").strip().lower()
+                c1 = (tm in jm or jm in tm)
+                c2 = (tv in jv or jv in tv)
+                c3 = (tm in jv or jv in tm)
+                c4 = (tv in jm or jm in tv)
+                if (c1 and c2) or (c3 and c4):
+                    jogo_oficial = {
+                        "data": j.get("data"),
+                        "dia": j.get("dia"),
+                        "mes": j.get("mes"),
+                        "hora": j.get("hora"),
+                        "ginasio": j.get("ginasio"),
+                        "status": j.get("status"),
+                        "placar_mandante": j.get("placar_mandante"),
+                        "placar_visitante": j.get("placar_visitante"),
+                        "sumula_url": j.get("sumula_url"),
+                        "rodada": j.get("rodada"),
+                        "mandante_oficial": j.get("mandante"),
+                        "visitante_oficial": j.get("visitante"),
+                    }
+                    break
+
+        vencedor = None
+        perdedor = None
+        placar_m = None
+        placar_v = None
+        motivo = None
+        status_conf = "A_DEFINIR"
+
+        if jogo_oficial:
+            if jogo_oficial.get("status") == "Encerrado":
+                status_conf = "ENCERRADO"
+                pm = jogo_oficial.get("placar_mandante")
+                pv = jogo_oficial.get("placar_visitante")
+                jm = (jogo_oficial.get("mandante_oficial") or "").strip().lower()
+                if tm in jm:
+                    placar_m = pm
+                    placar_v = pv
+                else:
+                    placar_m = pv
+                    placar_v = pm
+                
+                if placar_m is not None and placar_v is not None:
+                    if placar_m > placar_v:
+                        vencedor = m_time
+                        perdedor = v_time
+                        motivo = "Vitória no tempo normal"
+                    elif placar_v > placar_m:
+                        vencedor = v_time
+                        perdedor = m_time
+                        motivo = "Vitória no tempo normal"
+                    else:
+                        vencedor = m_time
+                        perdedor = v_time
+                        motivo = "Vantagem do empate (Melhor campanha)"
+            else:
+                status_conf = "AGENDADO"
+
+        return {
+            "id": id_conf,
+            "titulo": titulo,
+            "fase": fase_nome,
+            "chave": nome_chave.upper(),
+            "time_mandante": m_time,
+            "time_visitante": v_time,
+            "vantagem": vantagem,
+            "status_confronto": status_conf,
+            "vencedor": vencedor,
+            "perdedor": perdedor,
+            "placar_mandante": placar_m,
+            "placar_visitante": placar_v,
+            "motivo_vitoria": motivo,
+            "jogo_oficial": jogo_oficial,
+        }
+
     def _montar_chave(times: List[Dict[str, Any]], nome: str, cor: str, offset: int = 0):
         if len(times) < 8:
-            return {"nome": nome, "cor": cor, "quartas": [], "times": times}
+            return {"nome": nome, "cor": cor, "quartas": [], "semifinais": [], "final": None, "times": times, "resumo": {}}
 
-        quartas = [
-            {
-                "id": f"{nome.lower()}_qf1",
-                "titulo": "Quartas 1",
-                "semifinal_id": "sf1",
-                "time_mandante": times[0],
-                "time_visitante": times[7],
-                "vantagem": times[0].get("clube"),
-            },
-            {
-                "id": f"{nome.lower()}_qf2",
-                "titulo": "Quartas 2",
-                "semifinal_id": "sf2",
-                "time_mandante": times[1],
-                "time_visitante": times[6],
-                "vantagem": times[1].get("clube"),
-            },
-            {
-                "id": f"{nome.lower()}_qf3",
-                "titulo": "Quartas 3",
-                "semifinal_id": "sf2",
-                "time_mandante": times[2],
-                "time_visitante": times[5],
-                "vantagem": times[2].get("clube"),
-            },
-            {
-                "id": f"{nome.lower()}_qf4",
-                "titulo": "Quartas 4",
-                "semifinal_id": "sf1",
-                "time_mandante": times[3],
-                "time_visitante": times[4],
-                "vantagem": times[3].get("clube"),
-            },
-        ]
+        qf1 = _processar_confronto(times[0], times[7], "Quartas 1", f"{nome.lower()}_qf1", "Quartas de Final", "QF", nome)
+        qf2 = _processar_confronto(times[1], times[6], "Quartas 2", f"{nome.lower()}_qf2", "Quartas de Final", "QF", nome)
+        qf3 = _processar_confronto(times[2], times[5], "Quartas 3", f"{nome.lower()}_qf3", "Quartas de Final", "QF", nome)
+        qf4 = _processar_confronto(times[3], times[4], "Quartas 4", f"{nome.lower()}_qf4", "Quartas de Final", "QF", nome)
+        quartas = [qf1, qf2, qf3, qf4]
 
-        # Associação com jogos reais agendados/realizados da FPFS
-        if jogos_cat:
-            for q in quartas:
-                tm = q["time_mandante"].get("clube", "").strip().lower()
-                tv = q["time_visitante"].get("clube", "").strip().lower()
-                jogo_oficial = None
-                for j in jogos_cat:
-                    # Garante que o jogo associado seja do mata-mata correspondente à chave
-                    if j.get("fase") == "Fase Classificatória":
-                        continue
-                    j_chave = (j.get("chave") or "").upper()
-                    if j_chave and j_chave != nome.upper():
-                        continue
+        sf1 = _processar_confronto(qf1["vencedor"], qf4["vencedor"], "Semifinal 1", f"{nome.lower()}_sf1", "Semifinal", "SF", nome)
+        sf2 = _processar_confronto(qf2["vencedor"], qf3["vencedor"], "Semifinal 2", f"{nome.lower()}_sf2", "Semifinal", "SF", nome)
+        semifinais = [sf1, sf2]
 
-                    jm = j.get("mandante", "").strip().lower()
-                    jv = j.get("visitante", "").strip().lower()
-                    c1 = (tm in jm or jm in tm)
-                    c2 = (tv in jv or jv in tv)
-                    c3 = (tm in jv or jv in tm)
-                    c4 = (tv in jm or jm in tv)
-                    if (c1 and c2) or (c3 and c4):
-                        jogo_oficial = {
-                            "data": j.get("data"),
-                            "dia": j.get("dia"),
-                            "mes": j.get("mes"),
-                            "hora": j.get("hora"),
-                            "ginasio": j.get("ginasio"),
-                            "status": j.get("status"),
-                            "placar_mandante": j.get("placar_mandante"),
-                            "placar_visitante": j.get("placar_visitante"),
-                            "sumula_url": j.get("sumula_url"),
-                            "rodada": j.get("rodada"),
-                            "mandante_oficial": j.get("mandante"),
-                            "visitante_oficial": j.get("visitante"),
-                        }
-                        break
-                q["jogo_oficial"] = jogo_oficial
+        final = _processar_confronto(sf1["vencedor"], sf2["vencedor"], "Grande Final", f"{nome.lower()}_f1", "Final", "FINAL", nome)
+
+        todos = quartas + semifinais + [final]
+        enc = sum(1 for c in todos if c["status_confronto"] == "ENCERRADO")
+        age = sum(1 for c in todos if c["status_confronto"] == "AGENDADO")
+        ade = sum(1 for c in todos if c["status_confronto"] == "A_DEFINIR")
+
+        if final["status_confronto"] == "ENCERRADO":
+            fase_atual = "FINALIZADO"
+        elif final["time_mandante"] and final["time_visitante"]:
+            fase_atual = "FINAL"
+        elif all(q["status_confronto"] == "ENCERRADO" for q in quartas):
+            fase_atual = "SEMIFINAIS"
+        else:
+            fase_atual = "QUARTAS DE FINAL"
 
         return {
             "nome": nome,
             "cor": cor,
             "times": times,
             "quartas": quartas,
+            "semifinais": semifinais,
+            "final": final,
+            "resumo": {
+                "fase_atual": fase_atual,
+                "total_jogos": 7,
+                "jogos_realizados": enc,
+                "jogos_agendados": age,
+                "jogos_a_definir": ade,
+                "classificados_semis": [q["vencedor"]["clube"] for q in quartas if q.get("vencedor")],
+                "classificados_final": [s["vencedor"]["clube"] for s in semifinais if s.get("vencedor")],
+                "campeao": final.get("vencedor"),
+            }
         }
 
     ouro = ranking_lista[:8] if len(ranking_lista) >= 8 else ranking_lista
@@ -699,7 +805,8 @@ def obter_playoffs_chaveamento(
     jogos = dados.get("jogos", {})
 
     # Chaveamento Torneio União
-    playoffs_uniao = _montar_estrutura_playoffs(ranking_geral)
+    todos_jogos_uniao = [j for l in jogos.values() for j in l]
+    playoffs_uniao = _montar_estrutura_playoffs(ranking_geral, todos_jogos_uniao)
 
     # Chaveamento por Categoria com amarrações de jogos oficiais
     playoffs_categorias = {}

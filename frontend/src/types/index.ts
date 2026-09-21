@@ -435,11 +435,34 @@ export interface PlayoffJogoOficial {
 export interface PlayoffConfronto {
   id: string;
   titulo: string;
-  semifinal_id: string;
-  time_mandante: PlayoffTime;
-  time_visitante: PlayoffTime;
-  vantagem?: string;
+  fase?: string;
+  chave?: string;
+  semifinal_id?: string;
+  final_id?: string;
+  time_mandante: PlayoffTime | null;
+  time_visitante: PlayoffTime | null;
+  origem_mandante?: string;
+  origem_visitante?: string;
+  vantagem?: string | null;
+  status_confronto?: 'ENCERRADO' | 'AGENDADO' | 'A_DEFINIR';
+  vencedor?: PlayoffTime | null;
+  perdedor?: PlayoffTime | null;
+  placar_mandante?: number | null;
+  placar_visitante?: number | null;
+  motivo_vitoria?: string | null;
+  campeao?: PlayoffTime | null;
   jogo_oficial?: PlayoffJogoOficial | null;
+}
+
+export interface PlayoffResumo {
+  fase_atual: 'QUARTAS DE FINAL' | 'SEMIFINAIS' | 'FINAL' | 'FINALIZADO';
+  total_jogos: number;
+  jogos_realizados: number;
+  jogos_agendados: number;
+  jogos_a_definir: number;
+  classificados_semis: string[];
+  classificados_final: string[];
+  campeao?: PlayoffTime | null;
 }
 
 export interface PlayoffChave {
@@ -447,6 +470,9 @@ export interface PlayoffChave {
   cor: string;
   times: PlayoffTime[];
   quartas: PlayoffConfronto[];
+  semifinais?: PlayoffConfronto[];
+  final?: PlayoffConfronto | null;
+  resumo?: PlayoffResumo;
 }
 
 export interface ConfrontoRodadaFinal {

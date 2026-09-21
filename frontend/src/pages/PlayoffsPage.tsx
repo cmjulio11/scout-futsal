@@ -22,6 +22,9 @@ import {
   Flame,
   CheckCircle2,
   Layers,
+  Activity,
+  Check,
+  ExternalLink,
 } from 'lucide-react';
 
 const CATEGORIAS = [
@@ -80,7 +83,25 @@ export default function PlayoffsPage() {
 
     const totalSim = Object.keys(simulacoes).length;
 
-    // Lista base para o escopo selecionado
+    // Se NÃO houver simulações ativas da 23ª rodada, usar a estrutura oficial completa do backend!
+    if (totalSim === 0) {
+      if (categoriaAtiva === 'uniao') {
+        return {
+          rankingDinamico: data.torneio_uniao.ranking,
+          chavesDinamicas: data.torneio_uniao.chaves,
+          totalSimulados: 0,
+        };
+      } else {
+        const catData = data.categorias[categoriaAtiva];
+        return {
+          rankingDinamico: catData ? catData.ranking : [],
+          chavesDinamicas: catData ? catData.chaves : null,
+          totalSimulados: 0,
+        };
+      }
+    }
+
+    // Lista base para o escopo selecionado (caso simulado)
     let listaBase: any[] = [];
     if (categoriaAtiva === 'uniao') {
       listaBase = JSON.parse(JSON.stringify(data.torneio_uniao.ranking));
@@ -263,20 +284,42 @@ export default function PlayoffsPage() {
     const chave = (item.chave || 'BRONZE').toLowerCase() as ChaveTipo;
     const chaveObj = chavesDinamicas ? chavesDinamicas[chave] : null;
     let confrontoQF: PlayoffConfronto | null = null;
-    let adversario: PlayoffTime | null = null;
-    let temVantagem = false;
+    let adversarioQF: PlayoffTime | null = null;
+    let temVantagemQF = false;
+    let statusClube: 'CLASSIFICADO_SEMIS' | 'ELIMINADO_QF' | 'AGENDADO_QF' | 'A_DEFINIR_QF' = 'A_DEFINIR_QF';
+    let proximoAdversarioSemi: PlayoffTime | null = null;
 
     if (chaveObj) {
       confrontoQF =
         chaveObj.quartas.find(
           (qf) =>
-            qf.time_mandante.clube.toLowerCase() === item.clube.toLowerCase() ||
-            qf.time_visitante.clube.toLowerCase() === item.clube.toLowerCase()
+            qf.time_mandante?.clube.toLowerCase() === item.clube.toLowerCase() ||
+            qf.time_visitante?.clube.toLowerCase() === item.clube.toLowerCase()
         ) || null;
 
-      if (confrontoQF) {
-        temVantagem = confrontoQF.time_mandante.clube.toLowerCase() === item.clube.toLowerCase();
-        adversario = temVantagem ? confrontoQF.time_visitante : confrontoQF.time_mandante;
+      if (confrontoQF && confrontoQF.time_mandante && confrontoQF.time_visitante) {
+        temVantagemQF = confrontoQF.time_mandante.clube.toLowerCase() === item.clube.toLowerCase();
+        adversarioQF = temVantagemQF ? confrontoQF.time_visitante : confrontoQF.time_mandante;
+
+        if (confrontoQF.status_confronto === 'ENCERRADO') {
+          if (confrontoQF.vencedor?.clube.toLowerCase() === item.clube.toLowerCase()) {
+            statusClube = 'CLASSIFICADO_SEMIS';
+            const semiId = confrontoQF.semifinal_id;
+            const semiConfronto = chaveObj.semifinais?.find((s) => s.id.endsWith(semiId || ''));
+            if (semiConfronto) {
+              proximoAdversarioSemi =
+                semiConfronto.time_mandante?.clube.toLowerCase() === item.clube.toLowerCase()
+                  ? semiConfronto.time_visitante
+                  : semiConfronto.time_mandante;
+            }
+          } else {
+            statusClube = 'ELIMINADO_QF';
+          }
+        } else if (confrontoQF.status_confronto === 'AGENDADO') {
+          statusClube = 'AGENDADO_QF';
+        } else {
+          statusClube = 'A_DEFINIR_QF';
+        }
       }
     }
 
@@ -288,8 +331,10 @@ export default function PlayoffsPage() {
       pontos: item.pontos_total ?? item.pontos ?? 0,
       indice_tecnico: item.indice_tecnico,
       confrontoQF,
-      adversario,
-      temVantagem,
+      adversarioQF,
+      temVantagemQF,
+      statusClube,
+      proximoAdversarioSemi,
     };
   }, [clubeAtivo, rankingDinamico, chavesDinamicas]);
 
@@ -344,16 +389,48 @@ export default function PlayoffsPage() {
 
   const chaveAtual = chavesDinamicas ? chavesDinamicas[chaveAtiva] : null;
 
-  // Semifinais derivadas
-  const semi1Time1 = vencedoresQuartas[`${chaveAtiva}_qf1`] || chaveAtual?.quartas[0]?.time_mandante;
-  const semi1Time2 = vencedoresQuartas[`${chaveAtiva}_qf4`] || chaveAtual?.quartas[3]?.time_mandante;
-  const semi2Time1 = vencedoresQuartas[`${chaveAtiva}_qf2`] || chaveAtual?.quartas[1]?.time_mandante;
-  const semi2Time2 = vencedoresQuartas[`${chaveAtiva}_qf3`] || chaveAtual?.quartas[2]?.time_mandante;
+  // Semifinais derivadas com fallback inteligente para os classificados oficiais do backend
+  const semi1Time1 =
+    vencedoresQuartas[`${chaveAtiva}_qf1`] ||
+    chaveAtual?.quartas[0]?.vencedor ||
+    chaveAtual?.semifinais?.[0]?.time_mandante ||
+    chaveAtual?.quartas[0]?.time_mandante;
 
-  const finalTime1 = vencedoresSemis[`${chaveAtiva}_sf1`] || semi1Time1;
-  const finalTime2 = vencedoresSemis[`${chaveAtiva}_sf2`] || semi2Time1;
+  const semi1Time2 =
+    vencedoresQuartas[`${chaveAtiva}_qf4`] ||
+    chaveAtual?.quartas[3]?.vencedor ||
+    chaveAtual?.semifinais?.[0]?.time_visitante ||
+    chaveAtual?.quartas[3]?.time_mandante;
 
-  const campeao = campeaoChave[chaveAtiva] || null;
+  const semi2Time1 =
+    vencedoresQuartas[`${chaveAtiva}_qf2`] ||
+    chaveAtual?.quartas[1]?.vencedor ||
+    chaveAtual?.semifinais?.[1]?.time_mandante ||
+    chaveAtual?.quartas[1]?.time_mandante;
+
+  const semi2Time2 =
+    vencedoresQuartas[`${chaveAtiva}_qf3`] ||
+    chaveAtual?.quartas[2]?.vencedor ||
+    chaveAtual?.semifinais?.[1]?.time_visitante ||
+    chaveAtual?.quartas[2]?.time_mandante;
+
+  const finalTime1 =
+    vencedoresSemis[`${chaveAtiva}_sf1`] ||
+    chaveAtual?.semifinais?.[0]?.vencedor ||
+    chaveAtual?.final?.time_mandante ||
+    semi1Time1;
+
+  const finalTime2 =
+    vencedoresSemis[`${chaveAtiva}_sf2`] ||
+    chaveAtual?.semifinais?.[1]?.vencedor ||
+    chaveAtual?.final?.time_visitante ||
+    semi2Time1;
+
+  const campeao =
+    campeaoChave[chaveAtiva] ||
+    chaveAtual?.final?.vencedor ||
+    chaveAtual?.resumo?.campeao ||
+    null;
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row text-slate-100 font-sans">
@@ -484,45 +561,86 @@ export default function PlayoffsPage() {
                   </div>
                 </div>
 
-                {/* Adversário Projetado nas Quartas */}
-                <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/90 sm:min-w-[280px]">
-                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center justify-between">
-                    <span>Confronto nas Quartas:</span>
+                {/* Situação Oficial no Mata-Mata */}
+                <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/90 sm:min-w-[320px]">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center justify-between mb-1.5">
+                    <span>Situação no Mata-Mata:</span>
                     <span
-                      className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                        meuClubeStatus.temVantagem
-                          ? 'bg-emerald-500/15 text-emerald-400'
-                          : 'bg-amber-500/15 text-amber-400'
+                      className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
+                        meuClubeStatus.statusClube === 'CLASSIFICADO_SEMIS'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                          : meuClubeStatus.statusClube === 'ELIMINADO_QF'
+                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                          : meuClubeStatus.statusClube === 'AGENDADO_QF'
+                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
                       }`}
                     >
-                      {meuClubeStatus.temVantagem ? '🛡️ Tem Vantagem' : '✈️ Sem Vantagem'}
+                      {meuClubeStatus.statusClube === 'CLASSIFICADO_SEMIS' && '✅ Na Semifinal'}
+                      {meuClubeStatus.statusClube === 'ELIMINADO_QF' && '❌ Eliminado'}
+                      {meuClubeStatus.statusClube === 'AGENDADO_QF' && '📅 Jogo Agendado'}
+                      {meuClubeStatus.statusClube === 'A_DEFINIR_QF' && '⏳ Aguardando FPFS'}
                     </span>
                   </p>
-                  {meuClubeStatus.adversario ? (
-                    <div className="flex items-center gap-2.5 mt-2">
-                      <img
-                        src={meuClubeStatus.adversario.escudo_url || '/fpfs_shield.png'}
-                        alt={meuClubeStatus.adversario.clube}
-                        className="w-7 h-7 object-contain"
-                        onError={(e) => {
-                          e.currentTarget.src = '/fpfs_shield.png';
-                        }}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-white truncate">
-                          {meuClubeStatus.adversario.clube}
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          {meuClubeStatus.adversario.posicao}º Lugar •{' '}
-                          {meuClubeStatus.adversario.pontos_total ??
-                            meuClubeStatus.adversario.pontos ??
-                            0}{' '}
-                          pts
-                        </p>
-                      </div>
+
+                  {meuClubeStatus.statusClube === 'CLASSIFICADO_SEMIS' && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-emerald-300 font-bold">
+                        🎉 Venceu as Quartas ({meuClubeStatus.confrontoQF?.placar_mandante} x {meuClubeStatus.confrontoQF?.placar_visitante} contra {meuClubeStatus.adversarioQF?.clube})
+                      </p>
+                      {meuClubeStatus.proximoAdversarioSemi ? (
+                        <div className="flex items-center gap-2 pt-1 border-t border-slate-800/60">
+                          <span className="text-[10px] text-slate-400">Próximo jogo (Semifinal):</span>
+                          <span className="text-xs font-black text-white flex items-center gap-1.5">
+                            <img
+                              src={meuClubeStatus.proximoAdversarioSemi.escudo_url || '/fpfs_shield.png'}
+                              alt={meuClubeStatus.proximoAdversarioSemi.clube}
+                              className="w-4 h-4 object-contain"
+                            />
+                            {meuClubeStatus.proximoAdversarioSemi.clube}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-400">Aguardando definição do adversário na Semifinal.</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 italic mt-1">Aguardando definição</p>
+                  )}
+
+                  {meuClubeStatus.statusClube === 'ELIMINADO_QF' && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-slate-300 font-medium">
+                        Derrota nas Quartas ({meuClubeStatus.confrontoQF?.placar_mandante} x {meuClubeStatus.confrontoQF?.placar_visitante} contra {meuClubeStatus.adversarioQF?.clube}).
+                      </p>
+                      <p className="text-[10px] text-slate-500">Participação finalizada na Chave {meuClubeStatus.chave}.</p>
+                    </div>
+                  )}
+
+                  {(meuClubeStatus.statusClube === 'AGENDADO_QF' || meuClubeStatus.statusClube === 'A_DEFINIR_QF') && (
+                    <div>
+                      {meuClubeStatus.adversarioQF ? (
+                        <div className="flex items-center gap-2.5 mt-1">
+                          <img
+                            src={meuClubeStatus.adversarioQF.escudo_url || '/fpfs_shield.png'}
+                            alt={meuClubeStatus.adversarioQF.clube}
+                            className="w-7 h-7 object-contain"
+                            onError={(e) => {
+                              e.currentTarget.src = '/fpfs_shield.png';
+                            }}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-white truncate">
+                              vs {meuClubeStatus.adversarioQF.clube}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              {meuClubeStatus.temVantagemQF ? '🛡️ Tem Vantagem do Empate' : '✈️ Sem Vantagem'}
+                              {meuClubeStatus.confrontoQF?.jogo_oficial?.data ? ` • ${meuClubeStatus.confrontoQF.jogo_oficial.data} às ${meuClubeStatus.confrontoQF.jogo_oficial.hora}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500 italic mt-1">Aguardando definição do adversário</p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -786,7 +904,89 @@ export default function PlayoffsPage() {
           </div>
 
           {/* ========================================================================= */}
-          {/* ÁRVORE DO CHAVEAMENTO (BRACKET MODERNO) */}
+          {/* RADAR DO MATA-MATA (STATUS EM TEMPO REAL DA CHAVE) */}
+          {/* ========================================================================= */}
+          {chaveAtual && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <Activity className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm sm:text-base font-black text-white">
+                        Radar do Mata-Mata • Chave {chaveAtual.nome}
+                      </h3>
+                      <span
+                        className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                          chaveAtual.resumo?.fase_atual === 'SEMIFINAIS'
+                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                            : chaveAtual.resumo?.fase_atual === 'FINAL'
+                            ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                            : chaveAtual.resumo?.fase_atual === 'FINALIZADO'
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Fase: {chaveAtual.resumo?.fase_atual || 'QUARTAS DE FINAL'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {chaveAtual.resumo?.fase_atual === 'SEMIFINAIS'
+                        ? 'Quartas de Final 100% concluídas! 4 equipes garantiram vaga nas Semifinais.'
+                        : chaveAtual.resumo?.fase_atual === 'FINAL'
+                        ? 'Semifinais concluídas! Grande Final formada.'
+                        : chaveAtual.resumo?.fase_atual === 'FINALIZADO'
+                        ? 'Temporada concluída com campeão consagrado!'
+                        : `${chaveAtual.resumo?.jogos_realizados || 0} de 7 confrontos disputados nesta chave.`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Indicadores rápidos */}
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span className="text-slate-400 text-[11px]">Realizados:</span>
+                    <span className="font-bold text-white text-xs">{chaveAtual.resumo?.jogos_realizados || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800">
+                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span className="text-slate-400 text-[11px]">Agendados:</span>
+                    <span className="font-bold text-white text-xs">{chaveAtual.resumo?.jogos_agendados || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800">
+                    <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+                    <span className="text-slate-400 text-[11px]">A Definir:</span>
+                    <span className="font-bold text-white text-xs">{chaveAtual.resumo?.jogos_a_definir || 0}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Classificados para as Semifinais */}
+              {chaveAtual.resumo?.classificados_semis && chaveAtual.resumo.classificados_semis.length > 0 && (
+                <div className="pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    Classificados para as Semis:
+                  </span>
+                  {chaveAtual.resumo.classificados_semis.map((timeNome) => (
+                    <span
+                      key={timeNome}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold flex items-center gap-1.5"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      {timeNome}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* ÁRVORE DO CHAVEAMENTO (BRACKET INTELIGENTE) */}
           {/* ========================================================================= */}
           {loading ? (
             <div className="p-12 text-center bg-slate-900/50 border border-slate-800 rounded-2xl">
@@ -804,7 +1004,7 @@ export default function PlayoffsPage() {
                 <span className="flex items-center gap-2">
                   <Info className="w-4 h-4 text-blue-400" />
                   <span>
-                    Toque em uma equipe para simular sua vitória e vê-la avançar para a próxima fase!
+                    Resultados oficiais da FPFS atualizam a árvore automaticamente. Clique nos confrontos em aberto para simular!
                   </span>
                 </span>
                 <div className="flex items-center gap-3">
@@ -817,7 +1017,7 @@ export default function PlayoffsPage() {
                         setVencedoresQuartas({});
                         setVencedoresSemis({});
                         setCampeaoChave({});
-                        toast.success('Escolhas da árvore resetadas!');
+                        toast.success('Escolhas simuladas resetadas!');
                       }}
                       className="px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-[11px] text-amber-300 font-bold transition cursor-pointer flex items-center gap-1 shadow-sm"
                     >
@@ -846,16 +1046,19 @@ export default function PlayoffsPage() {
                   </div>
 
                   {chaveAtual.quartas.map((qf) => {
-                    const vencedorQF = vencedoresQuartas[qf.id];
+                    const vencedorSimulado = vencedoresQuartas[qf.id];
+                    const isEncerrado = qf.status_confronto === 'ENCERRADO';
+                    const vencedorFinal = isEncerrado ? qf.vencedor : (vencedorSimulado || null);
+
                     const isMandanteVencedor =
-                      vencedorQF?.clube.toLowerCase() === qf.time_mandante.clube.toLowerCase();
+                      vencedorFinal?.clube.toLowerCase() === qf.time_mandante?.clube.toLowerCase();
                     const isVisitanteVencedor =
-                      vencedorQF?.clube.toLowerCase() === qf.time_visitante.clube.toLowerCase();
+                      vencedorFinal?.clube.toLowerCase() === qf.time_visitante?.clube.toLowerCase();
 
                     const isMeuClubeNoJogo =
                       clubeAtivo &&
-                      (qf.time_mandante.clube.toLowerCase().includes(clubeAtivo.toLowerCase()) ||
-                        qf.time_visitante.clube.toLowerCase().includes(clubeAtivo.toLowerCase()));
+                      (qf.time_mandante?.clube.toLowerCase().includes(clubeAtivo.toLowerCase()) ||
+                        qf.time_visitante?.clube.toLowerCase().includes(clubeAtivo.toLowerCase()));
 
                     return (
                       <div
@@ -871,90 +1074,156 @@ export default function PlayoffsPage() {
                           <span className="font-bold text-slate-300 uppercase tracking-wider">
                             {qf.titulo}
                           </span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
-                            Cruza com {qf.semifinal_id === 'sf1' ? 'Semi 1' : 'Semi 2'}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {isEncerrado ? (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                <Check className="w-2.5 h-2.5" /> Encerrado
+                              </span>
+                            ) : qf.status_confronto === 'AGENDADO' ? (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                                📅 Agendado
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                                ⏳ A Definir
+                              </span>
+                            )}
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                              {qf.semifinal_id === 'sf1' ? 'Semi 1' : 'Semi 2'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Equipe 1 (Mandante / Melhor Campanha) */}
-                        <button
-                          type="button"
-                          onClick={() => handleEscolherVencedorQF(qf.id, qf.time_mandante)}
-                          className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer mb-1.5 ${
-                            isMandanteVencedor
-                              ? 'bg-blue-600/25 border border-blue-500/40 text-white'
-                              : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="w-5 h-5 rounded-md bg-slate-800 font-mono font-bold text-[10px] text-slate-400 flex items-center justify-center shrink-0">
-                              {qf.time_mandante.posicao}º
-                            </span>
-                            <img
-                              src={qf.time_mandante.escudo_url || '/fpfs_shield.png'}
-                              alt={qf.time_mandante.clube}
-                              className="w-6 h-6 object-contain shrink-0"
-                              onError={(e) => {
-                                e.currentTarget.src = '/fpfs_shield.png';
-                              }}
-                            />
-                            <span className="text-xs font-bold truncate">
-                              {qf.time_mandante.clube}
-                            </span>
-                          </div>
+                        {qf.time_mandante && (
+                          <button
+                            type="button"
+                            disabled={isEncerrado}
+                            onClick={() => handleEscolherVencedorQF(qf.id, qf.time_mandante!)}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl transition mb-1.5 ${
+                              isEncerrado ? 'cursor-default' : 'cursor-pointer'
+                            } ${
+                              isMandanteVencedor
+                                ? 'bg-emerald-950/40 border border-emerald-500/60 text-white shadow-sm'
+                                : isEncerrado
+                                ? 'bg-slate-950/40 text-slate-500 border border-transparent opacity-60'
+                                : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="w-5 h-5 rounded-md bg-slate-800 font-mono font-bold text-[10px] text-slate-400 flex items-center justify-center shrink-0">
+                                {qf.time_mandante.posicao}º
+                              </span>
+                              <img
+                                src={qf.time_mandante.escudo_url || '/fpfs_shield.png'}
+                                alt={qf.time_mandante.clube}
+                                className="w-6 h-6 object-contain shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/fpfs_shield.png';
+                                }}
+                              />
+                              <span className="text-xs font-bold truncate">
+                                {qf.time_mandante.clube}
+                              </span>
+                            </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] font-bold text-emerald-400">🛡️ Mando</span>
-                            {isMandanteVencedor && (
-                              <CheckCircle2 className="w-4 h-4 text-blue-400" />
-                            )}
-                          </div>
-                        </button>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isEncerrado && qf.placar_mandante !== null && (
+                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono font-black text-sm text-white">
+                                  {qf.placar_mandante}
+                                </span>
+                              )}
+                              {isMandanteVencedor ? (
+                                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Classificado
+                                </span>
+                              ) : isEncerrado ? (
+                                <span className="text-[10px] text-slate-600">Eliminado</span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-emerald-400">🛡️ Mando</span>
+                              )}
+                            </div>
+                          </button>
+                        )}
 
                         {/* Equipe 2 (Visitante) */}
-                        <button
-                          type="button"
-                          onClick={() => handleEscolherVencedorQF(qf.id, qf.time_visitante)}
-                          className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer ${
-                            isVisitanteVencedor
-                              ? 'bg-blue-600/25 border border-blue-500/40 text-white'
-                              : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="w-5 h-5 rounded-md bg-slate-800 font-mono font-bold text-[10px] text-slate-400 flex items-center justify-center shrink-0">
-                              {qf.time_visitante.posicao}º
-                            </span>
-                            <img
-                              src={qf.time_visitante.escudo_url || '/fpfs_shield.png'}
-                              alt={qf.time_visitante.clube}
-                              className="w-6 h-6 object-contain shrink-0"
-                              onError={(e) => {
-                                e.currentTarget.src = '/fpfs_shield.png';
-                              }}
-                            />
-                            <span className="text-xs font-bold truncate">
-                              {qf.time_visitante.clube}
-                            </span>
-                          </div>
+                        {qf.time_visitante && (
+                          <button
+                            type="button"
+                            disabled={isEncerrado}
+                            onClick={() => handleEscolherVencedorQF(qf.id, qf.time_visitante!)}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl transition ${
+                              isEncerrado ? 'cursor-default' : 'cursor-pointer'
+                            } ${
+                              isVisitanteVencedor
+                                ? 'bg-emerald-950/40 border border-emerald-500/60 text-white shadow-sm'
+                                : isEncerrado
+                                ? 'bg-slate-950/40 text-slate-500 border border-transparent opacity-60'
+                                : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="w-5 h-5 rounded-md bg-slate-800 font-mono font-bold text-[10px] text-slate-400 flex items-center justify-center shrink-0">
+                                {qf.time_visitante.posicao}º
+                              </span>
+                              <img
+                                src={qf.time_visitante.escudo_url || '/fpfs_shield.png'}
+                                alt={qf.time_visitante.clube}
+                                className="w-6 h-6 object-contain shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/fpfs_shield.png';
+                                }}
+                              />
+                              <span className="text-xs font-bold truncate">
+                                {qf.time_visitante.clube}
+                              </span>
+                            </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] text-slate-500">Visitante</span>
-                            {isVisitanteVencedor && (
-                              <CheckCircle2 className="w-4 h-4 text-blue-400" />
-                            )}
-                          </div>
-                        </button>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isEncerrado && qf.placar_visitante !== null && (
+                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono font-black text-sm text-white">
+                                  {qf.placar_visitante}
+                                </span>
+                              )}
+                              {isVisitanteVencedor ? (
+                                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Classificado
+                                </span>
+                              ) : isEncerrado ? (
+                                <span className="text-[10px] text-slate-600">Eliminado</span>
+                              ) : (
+                                <span className="text-[10px] text-slate-500">Visitante</span>
+                              )}
+                            </div>
+                          </button>
+                        )}
 
                         {/* Informação Oficial do Jogo Agendado / Realizado */}
                         {qf.jogo_oficial && (
-                          <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
-                            <span className="flex items-center gap-1 font-bold text-blue-400">
-                              <span>📅</span> {qf.jogo_oficial.data} às {qf.jogo_oficial.hora}
-                            </span>
-                            <span className="truncate max-w-[150px] text-[9px] text-slate-400 font-medium" title={qf.jogo_oficial.ginasio}>
-                              📍 {qf.jogo_oficial.ginasio.replace(/GIN[ÁA]SIO/i, '').trim()}
-                            </span>
+                          <div className="mt-2 pt-2 border-t border-slate-800/80 flex flex-col gap-1 text-[10px] text-slate-400">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1 font-bold text-blue-400">
+                                <span>📅</span> {qf.jogo_oficial.data} {qf.jogo_oficial.hora ? `às ${qf.jogo_oficial.hora}` : ''}
+                              </span>
+                              <span className="truncate max-w-[150px] text-[9px] text-slate-400 font-medium" title={qf.jogo_oficial.ginasio}>
+                                📍 {qf.jogo_oficial.ginasio.replace(/GIN[ÁA]SIO/i, '').trim()}
+                              </span>
+                            </div>
+                            {qf.motivo_vitoria && qf.motivo_vitoria !== 'Vitória no tempo normal' && (
+                              <div className="text-[9px] text-amber-400 font-medium">
+                                ⚖️ Decisão: {qf.motivo_vitoria}
+                              </div>
+                            )}
+                            {qf.jogo_oficial.sumula_url && (
+                              <a
+                                href={qf.jogo_oficial.sumula_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 self-start"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" /> Súmula Oficial FPFS
+                              </a>
+                            )}
                           </div>
                         )}
                       </div>
@@ -978,17 +1247,19 @@ export default function PlayoffsPage() {
                   <div className="p-3.5 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-sm space-y-2">
                     <div className="flex items-center justify-between text-[10px] text-slate-400">
                       <span className="font-bold uppercase text-amber-400">Semifinal 1</span>
-                      <span>Vencedor QF1 x QF4</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                        {semi1Time1 && semi1Time2 ? 'Confronto Definido' : 'Vencedor QF1 x QF4'}
+                      </span>
                     </div>
 
-                    {semi1Time1 && (
+                    {semi1Time1 ? (
                       <button
                         type="button"
                         onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf1`, semi1Time1)}
                         className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer ${
                           vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time1.clube
                             ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black'
-                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300'
+                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -996,23 +1267,35 @@ export default function PlayoffsPage() {
                             src={semi1Time1.escudo_url || '/fpfs_shield.png'}
                             alt={semi1Time1.clube}
                             className="w-6 h-6 object-contain shrink-0"
+                            onError={(e) => {
+                              e.currentTarget.src = '/fpfs_shield.png';
+                            }}
                           />
                           <span className="text-xs font-bold truncate">{semi1Time1.clube}</span>
                         </div>
-                        {vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time1.clube && (
-                          <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {semi1Time1.posicao && (
+                            <span className="text-[10px] text-slate-500">{semi1Time1.posicao}º</span>
+                          )}
+                          {vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time1.clube && (
+                            <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                          )}
+                        </div>
                       </button>
+                    ) : (
+                      <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
+                        Aguardando Vencedor Quartas 1
+                      </div>
                     )}
 
-                    {semi1Time2 && (
+                    {semi1Time2 ? (
                       <button
                         type="button"
                         onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf1`, semi1Time2)}
                         className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer ${
                           vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time2.clube
                             ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black'
-                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300'
+                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -1020,31 +1303,52 @@ export default function PlayoffsPage() {
                             src={semi1Time2.escudo_url || '/fpfs_shield.png'}
                             alt={semi1Time2.clube}
                             className="w-6 h-6 object-contain shrink-0"
+                            onError={(e) => {
+                              e.currentTarget.src = '/fpfs_shield.png';
+                            }}
                           />
                           <span className="text-xs font-bold truncate">{semi1Time2.clube}</span>
                         </div>
-                        {vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time2.clube && (
-                          <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {semi1Time2.posicao && (
+                            <span className="text-[10px] text-slate-500">{semi1Time2.posicao}º</span>
+                          )}
+                          {vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time2.clube && (
+                            <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                          )}
+                        </div>
                       </button>
+                    ) : (
+                      <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
+                        Aguardando Vencedor Quartas 4
+                      </div>
                     )}
+
+                    <div className="mt-1 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
+                      <span className="text-slate-500">Cruza para a Grande Final</span>
+                      <span className="text-amber-400/80 font-bold">
+                        {semi1Time1 && semi1Time2 ? 'Aguardando data FPFS' : 'Cruzamento Olímpico'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Semifinal 2 (QF2 x QF3) */}
                   <div className="p-3.5 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-sm space-y-2">
                     <div className="flex items-center justify-between text-[10px] text-slate-400">
                       <span className="font-bold uppercase text-amber-400">Semifinal 2</span>
-                      <span>Vencedor QF2 x QF3</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                        {semi2Time1 && semi2Time2 ? 'Confronto Definido' : 'Vencedor QF2 x QF3'}
+                      </span>
                     </div>
 
-                    {semi2Time1 && (
+                    {semi2Time1 ? (
                       <button
                         type="button"
                         onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf2`, semi2Time1)}
                         className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer ${
                           vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time1.clube
                             ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black'
-                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300'
+                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -1052,23 +1356,35 @@ export default function PlayoffsPage() {
                             src={semi2Time1.escudo_url || '/fpfs_shield.png'}
                             alt={semi2Time1.clube}
                             className="w-6 h-6 object-contain shrink-0"
+                            onError={(e) => {
+                              e.currentTarget.src = '/fpfs_shield.png';
+                            }}
                           />
                           <span className="text-xs font-bold truncate">{semi2Time1.clube}</span>
                         </div>
-                        {vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time1.clube && (
-                          <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {semi2Time1.posicao && (
+                            <span className="text-[10px] text-slate-500">{semi2Time1.posicao}º</span>
+                          )}
+                          {vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time1.clube && (
+                            <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                          )}
+                        </div>
                       </button>
+                    ) : (
+                      <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
+                        Aguardando Vencedor Quartas 2
+                      </div>
                     )}
 
-                    {semi2Time2 && (
+                    {semi2Time2 ? (
                       <button
                         type="button"
                         onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf2`, semi2Time2)}
                         className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer ${
                           vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time2.clube
                             ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black'
-                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300'
+                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -1076,14 +1392,33 @@ export default function PlayoffsPage() {
                             src={semi2Time2.escudo_url || '/fpfs_shield.png'}
                             alt={semi2Time2.clube}
                             className="w-6 h-6 object-contain shrink-0"
+                            onError={(e) => {
+                              e.currentTarget.src = '/fpfs_shield.png';
+                            }}
                           />
                           <span className="text-xs font-bold truncate">{semi2Time2.clube}</span>
                         </div>
-                        {vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time2.clube && (
-                          <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {semi2Time2.posicao && (
+                            <span className="text-[10px] text-slate-500">{semi2Time2.posicao}º</span>
+                          )}
+                          {vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time2.clube && (
+                            <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                          )}
+                        </div>
                       </button>
+                    ) : (
+                      <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
+                        Aguardando Vencedor Quartas 3
+                      </div>
                     )}
+
+                    <div className="mt-1 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
+                      <span className="text-slate-500">Cruza para a Grande Final</span>
+                      <span className="text-amber-400/80 font-bold">
+                        {semi2Time1 && semi2Time2 ? 'Aguardando data FPFS' : 'Cruzamento Olímpico'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -1106,7 +1441,7 @@ export default function PlayoffsPage() {
                       <span>Chave {chaveAtiva.toUpperCase()}</span>
                     </div>
 
-                    {finalTime1 && (
+                    {finalTime1 ? (
                       <button
                         type="button"
                         onClick={() => handleEscolherCampeao(chaveAtiva, finalTime1)}
@@ -1121,6 +1456,9 @@ export default function PlayoffsPage() {
                             src={finalTime1.escudo_url || '/fpfs_shield.png'}
                             alt={finalTime1.clube}
                             className="w-7 h-7 object-contain shrink-0"
+                            onError={(e) => {
+                              e.currentTarget.src = '/fpfs_shield.png';
+                            }}
                           />
                           <span className="text-sm font-black truncate">{finalTime1.clube}</span>
                         </div>
@@ -1128,11 +1466,15 @@ export default function PlayoffsPage() {
                           <span className="text-sm font-black text-amber-400">🏆 Campeão!</span>
                         )}
                       </button>
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-xs text-slate-500 italic">
+                        Aguardando Finalista 1
+                      </div>
                     )}
 
                     <div className="text-center text-[10px] font-bold text-slate-500">VS</div>
 
-                    {finalTime2 && (
+                    {finalTime2 ? (
                       <button
                         type="button"
                         onClick={() => handleEscolherCampeao(chaveAtiva, finalTime2)}
@@ -1147,6 +1489,9 @@ export default function PlayoffsPage() {
                             src={finalTime2.escudo_url || '/fpfs_shield.png'}
                             alt={finalTime2.clube}
                             className="w-7 h-7 object-contain shrink-0"
+                            onError={(e) => {
+                              e.currentTarget.src = '/fpfs_shield.png';
+                            }}
                           />
                           <span className="text-sm font-black truncate">{finalTime2.clube}</span>
                         </div>
@@ -1154,6 +1499,10 @@ export default function PlayoffsPage() {
                           <span className="text-sm font-black text-amber-400">🏆 Campeão!</span>
                         )}
                       </button>
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-xs text-slate-500 italic">
+                        Aguardando Finalista 2
+                      </div>
                     )}
                   </div>
 
