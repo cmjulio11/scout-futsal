@@ -12,6 +12,8 @@ import type {
   JogoItem,
   ArtilheiroItem,
   ConfrontoItem,
+  PlayoffsResponse,
+  PlayoffConfronto,
 } from '../types';
 import toast from 'react-hot-toast';
 import {
@@ -36,6 +38,9 @@ import {
   Printer,
   Navigation,
   Share2,
+  Swords,
+  ChevronRight,
+  ArrowRight,
 } from 'lucide-react';
 import GinasioLocalizacaoModal from '../components/GinasioLocalizacaoModal';
 import PlacarAoVivoModal from '../components/PlacarAoVivoModal';
@@ -86,6 +91,7 @@ export default function CampeonatosPage() {
   const [jogos, setJogos] = useState<JogoItem[]>([]);
   const [confrontos, setConfrontos] = useState<ConfrontoItem[]>([]);
   const [artilharia, setArtilharia] = useState<ArtilheiroItem[]>([]);
+  const [playoffsData, setPlayoffsData] = useState<PlayoffsResponse | null>(null);
   const [atualizadoEm, setAtualizadoEm] = useState<string>('');
 
   const [loading, setLoading] = useState<boolean>(true);
@@ -283,6 +289,13 @@ export default function CampeonatosPage() {
       carregarDados();
     }
   }, [temporadaSelecionada, categoriaSelecionada, activeTab]);
+
+  useEffect(() => {
+    campeonatosService
+      .obterPlayoffs(temporadaSelecionada)
+      .then((res) => setPlayoffsData(res))
+      .catch((err) => console.error('Erro ao carregar dados do playoff:', err));
+  }, [temporadaSelecionada]);
 
   const handleSincronizar = async () => {
     setSincronizando(true);
@@ -811,6 +824,296 @@ export default function CampeonatosPage() {
         <Layers className="w-3 h-3 text-amber-600 print:text-orange-700" />
         Chave Bronze
       </span>
+    );
+  };
+
+  const proximosPlayoffs = useMemo(() => {
+    if (!playoffsData) return [];
+
+    const chaves =
+      categoriaSelecionada === 'todas'
+        ? playoffsData.torneio_uniao?.chaves
+        : playoffsData.categorias?.[categoriaSelecionada]?.chaves;
+
+    if (!chaves) return [];
+
+    const lista: {
+      confronto: PlayoffConfronto;
+      chaveNome: 'BRONZE' | 'PRATA' | 'OURO';
+      faseNome: string;
+      ordem: number;
+    }[] = [];
+
+    // 1. Semifinais da Série Bronze (já definidas com quem venceu as quartas de 19-20/09)
+    if (chaves.bronze?.semifinais) {
+      chaves.bronze.semifinais.forEach((conf) => {
+        if (conf.status_confronto !== 'ENCERRADO' && (conf.time_mandante || conf.time_visitante)) {
+          lista.push({
+            confronto: conf,
+            chaveNome: 'BRONZE',
+            faseNome: 'Semifinal',
+            ordem: 1,
+          });
+        }
+      });
+    }
+
+    // 2. Quartas de Final da Série Prata (aguardando início)
+    if (chaves.prata?.quartas) {
+      chaves.prata.quartas.forEach((conf) => {
+        if (conf.status_confronto !== 'ENCERRADO') {
+          lista.push({
+            confronto: conf,
+            chaveNome: 'PRATA',
+            faseNome: 'Quartas de Final',
+            ordem: 2,
+          });
+        }
+      });
+    }
+
+    // 3. Quartas de Final da Série Ouro (aguardando início)
+    if (chaves.ouro?.quartas) {
+      chaves.ouro.quartas.forEach((conf) => {
+        if (conf.status_confronto !== 'ENCERRADO') {
+          lista.push({
+            confronto: conf,
+            chaveNome: 'OURO',
+            faseNome: 'Quartas de Final',
+            ordem: 3,
+          });
+        }
+      });
+    }
+
+    if (!busca) return lista;
+    const b = busca.toLowerCase();
+    return lista.filter((item) => {
+      const m = item.confronto.time_mandante?.clube?.toLowerCase() || '';
+      const v = item.confronto.time_visitante?.clube?.toLowerCase() || '';
+      return m.includes(b) || v.includes(b);
+    });
+  }, [playoffsData, categoriaSelecionada, busca]);
+
+  const renderPlayoffRadarCard = (
+    item: {
+      confronto: PlayoffConfronto;
+      chaveNome: 'BRONZE' | 'PRATA' | 'OURO';
+      faseNome: string;
+    },
+    idx: number
+  ) => {
+    const conf = item.confronto;
+    const isBronze = item.chaveNome === 'BRONZE';
+    const isPrata = item.chaveNome === 'PRATA';
+
+    const badgeColor = isBronze
+      ? 'text-orange-400 bg-orange-500/10 border-orange-500/30'
+      : isPrata
+      ? 'text-slate-300 bg-slate-500/10 border-slate-500/30'
+      : 'text-amber-400 bg-amber-500/10 border-amber-500/30';
+
+    const chaveIcon = isBronze ? '🥉' : isPrata ? '🥈' : '🥇';
+
+    return (
+      <div
+        key={conf.id || idx}
+        className="rounded-2xl p-3.5 sm:p-5 bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition shadow-lg flex flex-col gap-3 sm:gap-3.5"
+      >
+        {/* Top Header */}
+        <div className="flex items-center justify-between text-xs pb-2.5 border-b border-slate-800/80 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-[10px] sm:text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-md border flex items-center gap-1.5 ${badgeColor}`}
+            >
+              <span>{chaveIcon}</span>
+              <span>
+                SÉRIE {item.chaveNome} • {conf.titulo || item.faseNome}
+              </span>
+            </span>
+            <span className="text-[10px] sm:text-xs font-bold text-slate-400">
+              {categoriaSelecionada === 'todas' ? 'Torneio União' : categoriaSelecionada}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-300 text-[10px] sm:text-xs font-bold">
+              <Clock className="w-3 h-3 text-blue-400" />
+              <span>Aguardando agendamento FPFS</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Times / Confronto */}
+        <div className="grid grid-cols-1 sm:grid-cols-11 items-center gap-3 py-1">
+          {/* Mandante */}
+          <div className="sm:col-span-5 flex items-center justify-between sm:justify-start gap-3 p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
+            <div className="flex items-center gap-3 min-w-0">
+              <img
+                src={conf.time_mandante?.escudo_url || '/escudos/default.png'}
+                alt={conf.time_mandante?.clube || 'Mandante'}
+                className="w-10 h-10 object-contain drop-shadow shrink-0"
+                onError={(e) => {
+                  e.currentTarget.src = '/fpfs_shield.png';
+                }}
+              />
+              <div className="min-w-0">
+                <span className="font-black text-white text-sm block truncate">
+                  {conf.time_mandante?.clube || 'A Definir'}
+                </span>
+                <span className="text-[11px] text-slate-400 font-semibold block">
+                  {conf.time_mandante?.posicao ? `${conf.time_mandante.posicao}º na 1ª Fase` : 'Classificado'}
+                </span>
+              </div>
+            </div>
+            {conf.vantagem === conf.time_mandante?.clube && (
+              <span
+                className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0"
+                title="Possui a vantagem do empate após prorrogação"
+              >
+                ⭐ Vantagem
+              </span>
+            )}
+          </div>
+
+          {/* Versus Divider */}
+          <div className="sm:col-span-1 text-center py-1 sm:py-0">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 border border-slate-700 text-xs font-black text-slate-400">
+              VS
+            </span>
+          </div>
+
+          {/* Visitante */}
+          <div className="sm:col-span-5 flex items-center justify-between sm:justify-end gap-3 p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
+            {conf.vantagem === conf.time_visitante?.clube && (
+              <span
+                className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0"
+                title="Possui a vantagem do empate após prorrogação"
+              >
+                ⭐ Vantagem
+              </span>
+            )}
+            <div className="flex items-center justify-end gap-3 min-w-0 text-right">
+              <div className="min-w-0">
+                <span className="font-black text-white text-sm block truncate">
+                  {conf.time_visitante?.clube || 'A Definir'}
+                </span>
+                <span className="text-[11px] text-slate-400 font-semibold block">
+                  {conf.time_visitante?.posicao ? `${conf.time_visitante.posicao}º na 1ª Fase` : 'Classificado'}
+                </span>
+              </div>
+              <img
+                src={conf.time_visitante?.escudo_url || '/escudos/default.png'}
+                alt={conf.time_visitante?.clube || 'Visitante'}
+                className="w-10 h-10 object-contain drop-shadow shrink-0"
+                onError={(e) => {
+                  e.currentTarget.src = '/fpfs_shield.png';
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer do Card */}
+        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/60 gap-2 flex-wrap">
+          <span className="flex items-center gap-1.5">
+            <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <span>Regulamento FPFS • Partida única eliminatória com vantagem do empate na prorrogação</span>
+          </span>
+          <a
+            href="/playoffs"
+            className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-bold hover:underline"
+          >
+            <span>Abrir Simulador / Bracket</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPainelTransicaoMataMata = () => {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        {/* Banner Informativo Superior */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-blue-950/40 to-slate-900 border-2 border-blue-500/30 p-4 sm:p-6 shadow-2xl">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 sm:gap-6">
+            <div className="flex items-start gap-3.5 sm:gap-4">
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-blue-500/20 border border-blue-400/40 text-blue-400 shrink-0 shadow-lg shadow-blue-950">
+                <Trophy className="w-7 h-7 sm:w-9 sm:h-9 text-amber-400 animate-pulse" />
+              </div>
+              <div className="space-y-1 sm:space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    1ª Fase & Quartas Bronze Concluídas
+                  </span>
+                  <span className="text-xs text-slate-400 font-semibold">
+                    Todos os 280 jogos realizados
+                  </span>
+                </div>
+                <h2 className="text-lg sm:text-xl md:text-2xl font-black text-white tracking-tight leading-snug">
+                  Todas as partidas agendadas até o momento foram realizadas!
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
+                  A fase classificatória e as 16 Quartas de Final da Série Bronze (disputadas em 19 e 20/09) já foram finalizadas e estão com súmulas em PDF disponíveis na aba <strong>Jogos Anteriores</strong>. Abaixo você confere os próximos confrontos já definidos no Mata-Mata aguardando a data oficial da FPFS.
+                </p>
+              </div>
+            </div>
+
+            {/* Ações Rápidas */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto shrink-0 pt-2 lg:pt-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab('anteriores')}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-500 font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 cursor-pointer"
+              >
+                <History className="w-4 h-4 text-amber-400" />
+                <span>Ver Resultados Recentes (19 e 20/09)</span>
+              </button>
+
+              <a
+                href="/playoffs"
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm shadow-lg shadow-blue-900/40 border border-blue-400/50 transition-all active:scale-95 cursor-pointer"
+              >
+                <Swords className="w-4 h-4 text-white" />
+                <span>Mata-Mata & Simulador</span>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* Seção Próximos Confrontos no Radar */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-2">
+              <Swords className="w-5 h-5 text-blue-400" />
+              <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
+                Próximos Confrontos Definidos no Mata-Mata ({categoriaSelecionada === 'todas' ? 'Torneio União' : categoriaSelecionada})
+              </h3>
+            </div>
+            <span className="text-[11px] text-slate-400 hidden sm:inline font-semibold">
+              {proximosPlayoffs.length} confronto{proximosPlayoffs.length !== 1 ? 's' : ''} no radar
+            </span>
+          </div>
+
+          {proximosPlayoffs.length === 0 ? (
+            <div className="p-8 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
+              <Clock className="w-7 h-7 text-blue-400 mx-auto mb-2 opacity-60" />
+              <p className="text-white font-bold text-sm">
+                Nenhum confronto encontrado com os filtros atuais.
+              </p>
+              <p className="text-slate-400 text-xs mt-1">
+                Tente limpar o termo de busca ou selecionar outra categoria.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {proximosPlayoffs.map((item, idx) => renderPlayoffRadarCard(item, idx))}
+            </div>
+          )}
+        </div>
+      </div>
     );
   };
 
@@ -1399,21 +1702,13 @@ export default function CampeonatosPage() {
                 <div className="space-y-3 sm:space-y-4">
                   {categoriaSelecionada === 'todas' ? (
                     filtrarListaConfrontos(confrontosProximos).length === 0 ? (
-                      <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
-                        <Clock className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                        <p className="text-white font-bold">Nenhum confronto agendado com os filtros atuais.</p>
-                        <p className="text-slate-400 text-xs mt-1">Experimente alterar a rodada ou a busca.</p>
-                      </div>
+                      renderPainelTransicaoMataMata()
                     ) : (
                       filtrarListaConfrontos(confrontosProximos).map((c, idx) => renderConfrontoCard(c, idx))
                     )
                   ) : (
                     filtrarListaJogos(jogosProximos).length === 0 ? (
-                      <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
-                        <Clock className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                        <p className="text-white font-bold">Nenhum próximo jogo agendado com os filtros atuais.</p>
-                        <p className="text-slate-400 text-xs mt-1">Experimente alterar a rodada ou a categoria selecionada.</p>
-                      </div>
+                      renderPainelTransicaoMataMata()
                     ) : (
                       filtrarListaJogos(jogosProximos).map((jogo, idx) => {
                       const statusJogo = getStatusPartida(jogo);
