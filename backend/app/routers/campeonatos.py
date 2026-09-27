@@ -3,6 +3,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel
 import urllib.parse
+import unicodedata
+
 from ..services import scraper_fpfs
 from ..services.sync_manager import sync_manager
 from ..services.pdf_generator import gerar_pdf_atleta
@@ -170,6 +172,14 @@ class AtualizarPlacarRequest(BaseModel):
     placar_visitante: Optional[int] = None
     status: str = "Em Andamento"  # "Em Andamento", "Encerrado", "Agendado"
 
+class CorrigirVencedorRequest(BaseModel):
+    temporada: int = 2026
+    categoria: str = "Sub-7"
+    mandante: str
+    visitante: str
+    vencedor_prorrogacao: str  # Nome do clube que venceu na prorrogação/pênaltis
+    motivo: Optional[str] = "Vitória na prorrogação"  # Descrição do motivo
+
 @router.post("/jogos/atualizar-placar")
 def atualizar_placar_jogo(req: AtualizarPlacarRequest):
     """Permite atualizar o placar ao vivo e status de uma partida."""
@@ -199,6 +209,57 @@ def atualizar_placar_jogo(req: AtualizarPlacarRequest):
         "status": "ok",
         "mensagem": "Placar ao vivo atualizado com sucesso!",
         "jogo": jogo_encontrado
+    }
+
+@router.post("/jogos/corrigir-vencedor")
+def corrigir_vencedor_prorrogacao(
+    req: CorrigirVencedorRequest,
+    admin: Usuario = Depends(exigir_admin)
+):
+    """
+    Registra manualmente o vencedor de um jogo empatado no tempo normal
+    que foi decidido na prorrogação ou nos pênaltis.
+    Exclusivo para o Administrador. A correção é persistida no banco local
+    e refletida imediatamente no chaveamento de mata-mata.
+    """
+    dados = scraper_fpfs.obter_dados_completos(req.temporada)
+    jogos_por_cat = dados.get("jogos", {})
+
+    # Busca em todas as categorias se não especificada, ou na categoria informada
+    categorias_busca = [req.categoria] if req.categoria else ["Sub-7", "Sub-8", "Sub-9", "Sub-10"]
+    jogos_corrigidos = []
+
+    for cat in categorias_busca:
+        jogos = jogos_por_cat.get(cat, [])
+        for j in jogos:
+            m_match = req.mandante.lower() in j.get("mandante", "").lower() or j.get("mandante", "").lower() in req.mandante.lower()
+            v_match = req.visitante.lower() in j.get("visitante", "").lower() or j.get("visitante", "").lower() in req.visitante.lower()
+            if m_match and v_match:
+                j["vencedor_prorrogacao"] = req.vencedor_prorrogacao
+                j["motivo_prorrogacao"] = req.motivo or "Vitória na prorrogação"
+                jogos_corrigidos.append({
+                    "categoria": cat,
+                    "mandante": j.get("mandante"),
+                    "visitante": j.get("visitante"),
+                    "vencedor_registrado": req.vencedor_prorrogacao,
+                })
+
+    if not jogos_corrigidos:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Nenhuma partida encontrada entre '{req.mandante}' e '{req.visitante}'."
+        )
+
+    dados["atualizado_em"] = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+    scraper_fpfs.salvar_dados_locais(req.temporada, dados)
+    # Limpa cache para refletir a correção
+    scraper_fpfs._CACHE.clear()
+
+    return {
+        "status": "ok",
+        "mensagem": f"Vencedor registrado: {req.vencedor_prorrogacao} (prorrogação/pênaltis)",
+        "jogos_corrigidos": jogos_corrigidos,
+        "total_corrigidos": len(jogos_corrigidos),
     }
 
 @router.get("/artilharia")
@@ -285,7 +346,6 @@ def baixar_ficha_atleta_pdf(
         
     try:
         pdf_bytes = gerar_pdf_atleta(ficha)
-        import unicodedata
         nome_atleta = ficha.get("atleta", {}).get("nome", "Atleta").replace(" ", "_")
         clube = ficha.get("atleta", {}).get("clube", "Clube").replace(" ", "_")
         filename_raw = f"Ficha_Tecnica_{nome_atleta}_{clube}_{cat}_{ano}.pdf"
@@ -705,9 +765,41 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
                         perdedor = m_time
                         motivo = "Vitória no tempo normal"
                     else:
-                        vencedor = m_time
-                        perdedor = v_time
-                        motivo = "Vantagem do empate (Melhor campanha)"
+                        # Empate no tempo normal: verificar se há registro de vencedor
+                        # na prorrogação ou pênaltis (campo salvo manualmente pelo admin)
+                        venc_prorr = (jogo_oficial.get("vencedor_prorrogacao") or "").strip().lower()
+                        # Normaliza: remove acentos para comparacao robusta
+                        def _norm(s):
+                            return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('ascii').lower().strip()
+                        if venc_prorr:
+                            # Compara o nome registrado com mandante/visitante (sem acentos)
+                            nome_m_norm = _norm(m_time.get("clube") or "")
+                            nome_v_norm = _norm(v_time.get("clube") or "")
+                            venc_norm = _norm(venc_prorr)
+                            # Verifica se o vencedor bate com o visitante
+                            match_v = venc_norm in nome_v_norm or nome_v_norm in venc_norm or \
+                                      any(w in nome_v_norm for w in venc_norm.split() if len(w) > 3)
+                            # Verifica se o vencedor bate com o mandante
+                            match_m = venc_norm in nome_m_norm or nome_m_norm in venc_norm or \
+                                      any(w in nome_m_norm for w in venc_norm.split() if len(w) > 3)
+                            if match_v and not match_m:
+                                vencedor = v_time
+                                perdedor = m_time
+                                motivo = "Vitória na prorrogação/pênaltis"
+                            elif match_m:
+                                vencedor = m_time
+                                perdedor = v_time
+                                motivo = "Vitória na prorrogação/pênaltis"
+                            else:
+                                # Fallback: mandante avança
+                                vencedor = m_time
+                                perdedor = v_time
+                                motivo = "Empate — avança por melhor campanha (aguardando confirmação)"
+                        else:
+                            # Sem informação de prorrogação: melhor posicionado avança
+                            vencedor = m_time
+                            perdedor = v_time
+                            motivo = "Empate — avança por melhor campanha (aguardando confirmação)"
             else:
                 status_conf = "AGENDADO"
 
