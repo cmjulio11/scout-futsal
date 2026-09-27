@@ -732,6 +732,9 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
                         "rodada": j.get("rodada"),
                         "mandante_oficial": j.get("mandante"),
                         "visitante_oficial": j.get("visitante"),
+                        # Campo de correção manual de prorrogação/pênaltis
+                        "vencedor_prorrogacao": j.get("vencedor_prorrogacao"),
+                        "motivo_prorrogacao": j.get("motivo_prorrogacao"),
                     }
                     break
 
