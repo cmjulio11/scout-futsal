@@ -28,11 +28,11 @@ import {
 } from 'lucide-react';
 
 const CATEGORIAS = [
-  { id: 'uniao', nome: 'Torneio União (Geral)', rotulo: 'Geral (4 Subs somados)' },
   { id: 'Sub-7', nome: 'Sub-07', rotulo: 'Sub-07 (Iniciação)' },
   { id: 'Sub-8', nome: 'Sub-08', rotulo: 'Sub-08 (Iniciação)' },
   { id: 'Sub-9', nome: 'Sub-09', rotulo: 'Sub-09 (Iniciação)' },
   { id: 'Sub-10', nome: 'Sub-10', rotulo: 'Sub-10 (Iniciação)' },
+  { id: 'uniao', nome: 'Torneio União (1ª Fase)', rotulo: 'Geral (4 Subs somados)' },
 ];
 
 type ChaveTipo = 'ouro' | 'prata' | 'bronze';
@@ -46,7 +46,7 @@ export default function PlayoffsPage() {
   const { clubeAtivo } = useAuth();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PlayoffsResponse | null>(null);
-  const [categoriaAtiva, setCategoriaAtiva] = useState<string>('uniao');
+  const [categoriaAtiva, setCategoriaAtiva] = useState<string>('Sub-7');
   const [chaveAtiva, setChaveAtiva] = useState<ChaveTipo>('ouro');
 
   // Estado do simulador da rodada 23
@@ -831,6 +831,21 @@ export default function PlayoffsPage() {
               </button>
             ))}
           </div>
+
+          {categoriaAtiva === 'uniao' && (
+            <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-500/30 flex items-start gap-3 shadow-lg">
+              <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-slate-300 space-y-1">
+                <p className="font-bold text-white text-sm">Chaveamento do Torneio União (1ª Fase)</p>
+                <p>
+                  No regulamento oficial da FPFS (Art. 12 a 14), o Torneio União é apurado exclusivamente na 1ª Fase (fase classificatória de pontos corridos). No Mata-Mata, a Federação não realiza confrontos unificados dos 4 subs juntos: as partidas e chaveamentos oficiais ocorrem individualmente nas categorias <strong>Sub-7, Sub-8, Sub-9 e Sub-10</strong>.
+                </p>
+                <p className="text-blue-300 font-semibold">
+                  Selecione uma das abas acima (Sub-07 a Sub-10) para ver os jogos oficiais reais, placares e as equipes já classificadas para as Semifinais!
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* ========================================================================= */}
           {/* SELETOR DE CHAVES: OURO, PRATA, BRONZE */}

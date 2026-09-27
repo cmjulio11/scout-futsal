@@ -1422,6 +1422,23 @@ export default function CampeonatosPage() {
               {/* 1. ABA TABELA DE CLASSIFICAÇÃO */}
               {activeTab === 'tabela' && (
                 <div className="space-y-3">
+                  {/* Banner Informativo de Fase de Mata-Mata */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-3.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-xs shadow-md">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="text-slate-300">
+                        <strong className="text-white font-bold">1ª Fase Concluída (23 rodadas):</strong> Esta tabela representa a classificação oficial final da 1ª Fase. Os jogos do <strong>Mata-Mata</strong> são eliminatórios diretos e não somam pontos nesta tabela.
+                      </span>
+                    </div>
+                    <a
+                      href="/playoffs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white font-bold text-xs shrink-0 self-start sm:self-auto transition"
+                    >
+                      <Swords className="w-3.5 h-3.5" />
+                      <span>Ver Mata-Mata</span>
+                    </a>
+                  </div>
+
                   {classificacaoFiltrada.length === 0 ? (
                     <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
                       <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
@@ -2260,6 +2277,23 @@ export default function CampeonatosPage() {
                         Define a divisão das Chaves (Ouro: 1º-8º, Prata: 9º-16º, Bronze: 17º-24º) e o rebaixamento de 3 clubes à Série A2.
                       </p>
                     </div>
+                  </div>
+
+                  {/* Banner Informativo de Fase Concluída */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-3.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-xs shadow-md">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="text-slate-300">
+                        <strong className="text-white font-bold">Classificação Geral da 1ª Fase Consolidada:</strong> O Torneio União foi apurado na fase de grupos para definir as Chaves Ouro, Prata e Bronze. O Mata-Mata não altera esta tabela geral.
+                      </span>
+                    </div>
+                    <a
+                      href="/playoffs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white font-bold text-xs shrink-0 self-start sm:self-auto transition"
+                    >
+                      <Swords className="w-3.5 h-3.5" />
+                      <span>Ver Mata-Mata</span>
+                    </a>
                   </div>
 
                   {rankingFiltrado.length === 0 ? (
