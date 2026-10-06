@@ -835,11 +835,44 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
         qf4 = _processar_confronto(times[3], times[4], "Quartas 4", f"{nome.lower()}_qf4", "Quartas de Final", "QF", nome)
         quartas = [qf1, qf2, qf3, qf4]
 
-        sf1 = _processar_confronto(qf1["vencedor"], qf4["vencedor"], "Semifinal 1", f"{nome.lower()}_sf1", "Semifinal", "SF", nome)
-        sf2 = _processar_confronto(qf2["vencedor"], qf3["vencedor"], "Semifinal 2", f"{nome.lower()}_sf2", "Semifinal", "SF", nome)
-        semifinais = [sf1, sf2]
+        # Se existirem jogos reais de Semifinal para esta chave cadastrados no site da FPFS,
+        # pareamos os confrontos reais diretamente (respeitando o cruzamento olímpico/campanha da FPFS)
+        semis_reais = []
+        finais_reais = []
+        if jogos_cat:
+            semis_reais = [j for j in jogos_cat if j.get("fase") == "Semifinal" and (j.get("chave") or "").upper() == nome.upper()]
+            finais_reais = [j for j in jogos_cat if j.get("fase") == "Final" and (j.get("chave") or "").upper() == nome.upper()]
 
-        final = _processar_confronto(sf1["vencedor"], sf2["vencedor"], "Grande Final", f"{nome.lower()}_f1", "Final", "FINAL", nome)
+        def _achar_time_por_nome(nome_clube: Optional[str]) -> Optional[Dict[str, Any]]:
+            if not nome_clube:
+                return None
+            nc = unicodedata.normalize('NFKD', nome_clube).encode('ascii', 'ignore').decode('ascii').lower().strip()
+            for t in times:
+                tc = unicodedata.normalize('NFKD', t.get("clube", "")).encode('ascii', 'ignore').decode('ascii').lower().strip()
+                if tc in nc or nc in tc or any(w in nc for w in tc.split() if len(w) > 3):
+                    return t
+            return {"clube": nome_clube, "posicao": 999}
+
+        if len(semis_reais) >= 2:
+            s_t1_m = _achar_time_por_nome(semis_reais[0].get("mandante"))
+            s_t1_v = _achar_time_por_nome(semis_reais[0].get("visitante"))
+            sf1 = _processar_confronto(s_t1_m, s_t1_v, "Semifinal 1", f"{nome.lower()}_sf1", "Semifinal", "SF", nome)
+
+            s_t2_m = _achar_time_por_nome(semis_reais[1].get("mandante"))
+            s_t2_v = _achar_time_por_nome(semis_reais[1].get("visitante"))
+            sf2 = _processar_confronto(s_t2_m, s_t2_v, "Semifinal 2", f"{nome.lower()}_sf2", "Semifinal", "SF", nome)
+            semifinais = [sf1, sf2]
+        else:
+            sf1 = _processar_confronto(qf1["vencedor"], qf4["vencedor"], "Semifinal 1", f"{nome.lower()}_sf1", "Semifinal", "SF", nome)
+            sf2 = _processar_confronto(qf2["vencedor"], qf3["vencedor"], "Semifinal 2", f"{nome.lower()}_sf2", "Semifinal", "SF", nome)
+            semifinais = [sf1, sf2]
+
+        if len(finais_reais) >= 1:
+            f_m = _achar_time_por_nome(finais_reais[0].get("mandante"))
+            f_v = _achar_time_por_nome(finais_reais[0].get("visitante"))
+            final = _processar_confronto(f_m, f_v, "Grande Final", f"{nome.lower()}_f1", "Final", "FINAL", nome)
+        else:
+            final = _processar_confronto(sf1["vencedor"], sf2["vencedor"], "Grande Final", f"{nome.lower()}_f1", "Final", "FINAL", nome)
 
         todos = quartas + semifinais + [final]
         enc = sum(1 for c in todos if c["status_confronto"] == "ENCERRADO")

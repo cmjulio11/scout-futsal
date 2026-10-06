@@ -39,32 +39,22 @@ class SyncManager:
     def _calcular_proxima_execucao(self) -> datetime:
         """
         Calcula o proximo horario agendado de sincronizacao:
-        - Diariamente as 06:00 da manha.
-        - Finais de semana (sabado e domingo) tambem as 21:00 da noite.
+        Executa a cada 3 horas ao longo do dia (06h, 09h, 12h, 15h, 18h, 21h, 23h)
+        para garantir que novos jogos e resultados do mata-mata sejam capturados rapidamente.
         """
         agora = datetime.now()
         hoje = agora.date()
-
         candidatos = []
 
-        # 1. Hoje as 06:00
-        t_06 = datetime.combine(hoje, time(6, 0, 0))
-        if t_06 > agora:
-            candidatos.append(t_06)
+        horarios = [6, 9, 12, 15, 18, 21, 23]
+        for h in horarios:
+            t = datetime.combine(hoje, time(h, 0, 0))
+            if t > agora:
+                candidatos.append(t)
 
-        # 2. Hoje as 21:00 (se for sabado=5 ou domingo=6)
-        if agora.weekday() in (5, 6):
-            t_21 = datetime.combine(hoje, time(21, 0, 0))
-            if t_21 > agora:
-                candidatos.append(t_21)
-
-        # 3. Amanha as 06:00
         amanha = hoje + timedelta(days=1)
-        candidatos.append(datetime.combine(amanha, time(6, 0, 0)))
-
-        # 4. Amanha as 21:00 (se amanha for sabado ou domingo)
-        if amanha.weekday() in (5, 6):
-            candidatos.append(datetime.combine(amanha, time(21, 0, 0)))
+        for h in horarios:
+            candidatos.append(datetime.combine(amanha, time(h, 0, 0)))
 
         candidatos.sort()
         self.proxima_execucao_agendada = candidatos[0]
@@ -160,6 +150,26 @@ class SyncManager:
         a sincronizacao automatica nos horarios agendados.
         """
         print(f"[CRON] Robo de Sincronizacao Agendada iniciado. Proxima execucao: {self.proxima_execucao_agendada.strftime('%d/%m/%Y %H:%M:%S')}")
+
+        # 1. Checagem inteligente no boot: se o banco local estiver há mais de 2 horas sem sync, sincroniza em background
+        try:
+            dados = scraper_fpfs.carregar_dados_locais(temporada)
+            precisa_sync = True
+            if dados and dados.get("atualizado_em"):
+                try:
+                    ult_sync = datetime.fromisoformat(dados["atualizado_em"])
+                    # Se tiver menos de 2 horas desde o último sync, não precisa sincronizar imediatamente
+                    if (datetime.utcnow() - ult_sync).total_seconds() < 7200:
+                        precisa_sync = False
+                except Exception:
+                    pass
+            if precisa_sync:
+                print("[CRON] Base local desatualizada no boot. Disparando sync automatico em background...")
+                await asyncio.to_thread(self.sincronizar_com_trava, temporada, "startup_auto")
+        except Exception as e:
+            print(f"[CRON] Aviso na checagem inicial de sync: {e}")
+
+        # 2. Loop de agendamento periódico
         while True:
             try:
                 agora = datetime.now()
