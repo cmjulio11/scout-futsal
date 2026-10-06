@@ -899,9 +899,10 @@ def obter_playoffs_chaveamento(
     classificacao = dados.get("classificacao", {})
     jogos = dados.get("jogos", {})
 
-    # Chaveamento Torneio União
+    # Chaveamento Torneio União (mantém o chaveamento original da 1ª fase)
+    ranking_fase1 = dados.get("ranking_fase1") or ranking_geral
     todos_jogos_uniao = [j for l in jogos.values() for j in l]
-    playoffs_uniao = _montar_estrutura_playoffs(ranking_geral, todos_jogos_uniao)
+    playoffs_uniao = _montar_estrutura_playoffs(ranking_fase1, todos_jogos_uniao)
 
     # Chaveamento por Categoria com amarrações de jogos oficiais
     playoffs_categorias = {}

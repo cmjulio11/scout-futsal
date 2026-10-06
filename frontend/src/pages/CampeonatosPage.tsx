@@ -2274,17 +2274,17 @@ export default function CampeonatosPage() {
                       </h3>
                       <p className="text-slate-400 text-[11px] sm:text-xs mt-1 leading-relaxed">
                         Índice Técnico = (Soma dos Pontos Ganhos no Sub-7, 8, 9 e 10 / Soma dos Jogos Realizados) × 1000.
-                        Define a divisão das Chaves (Ouro: 1º-8º, Prata: 9º-16º, Bronze: 17º-24º) e o rebaixamento de 3 clubes à Série A2.
+                        TOTAL OFICIAL = Índice Técnico + Bonificações por Fase Eliminatória (300 pts/fase por categoria) + Pontuação Disciplinar (Cartões Negativos).
                       </p>
                     </div>
                   </div>
 
-                  {/* Banner Informativo de Fase Concluída */}
+                  {/* Banner Informativo de Atualização Oficial */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-3.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-xs shadow-md">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span className="text-slate-300">
-                        <strong className="text-white font-bold">Classificação Geral da 1ª Fase Consolidada:</strong> O Torneio União foi apurado na fase de grupos para definir as Chaves Ouro, Prata e Bronze. O Mata-Mata não altera esta tabela geral.
+                        <strong className="text-white font-bold">Classificação Oficial FPFS Atualizada:</strong> Tabela geral consolidada da Federação Paulista, computando os jogos eliminatórios de todas as categorias, bonificações de avanço de fase e pontuação disciplinar (Art. 12 do Regulamento).
                       </span>
                     </div>
                     <a
@@ -2312,7 +2312,7 @@ export default function CampeonatosPage() {
 
                       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
                         <div className="overflow-x-auto scrollbar-thin">
-                          <table className="w-full text-left text-xs min-w-[850px] sm:min-w-full">
+                          <table className="w-full text-left text-xs min-w-[950px] sm:min-w-full">
                             <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider font-bold border-b border-slate-800">
                               <tr>
                                 <th className="px-3 py-3 text-center w-10 sticky left-0 bg-slate-950 z-20 shadow-[1px_0_0_#334155]">Pos</th>
@@ -2328,6 +2328,9 @@ export default function CampeonatosPage() {
                                 <th className="px-3 py-3 text-center">GC</th>
                                 <th className="px-3 py-3 text-center">SG</th>
                                 <th className="px-3 py-3 text-center">AVG</th>
+                                <th className="px-3 py-3 text-center font-bold text-amber-400" title="Bonificação por fase eliminatória alcançada">Bonif.</th>
+                                <th className="px-3 py-3 text-center font-bold text-rose-400" title="Pontuação disciplinar negativa (cartões)">Neg.</th>
+                                <th className="px-3 py-3 text-center font-black text-emerald-400 bg-emerald-500/10" title="TOTAL Oficial FPFS (IT + Bonif + Neg)">TOTAL</th>
                                 <th className="px-3 py-3 text-center">Sub-7</th>
                                 <th className="px-3 py-3 text-center">Sub-8</th>
                                 <th className="px-3 py-3 text-center">Sub-9</th>
@@ -2409,6 +2412,19 @@ export default function CampeonatosPage() {
                                     </td>
                                     <td className="px-3 py-2.5 text-center text-slate-400 font-medium">
                                       {item.average.toFixed(2)}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-center font-bold text-amber-400">
+                                      {item.bonificacao ? `+${item.bonificacao}` : '0'}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-center font-bold text-rose-400">
+                                      {item.negativos ? item.negativos : '0'}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-center font-black text-emerald-400 text-xs sm:text-sm bg-emerald-500/5">
+                                      {item.total_oficial
+                                        ? (item.total_oficial >= 1000
+                                            ? (item.total_oficial / 1000).toFixed(3).replace('.', ',')
+                                            : String(item.total_oficial))
+                                        : item.indice_tecnico.toFixed(1)}
                                     </td>
                                     <td className="px-3 py-2.5 text-center text-slate-300 font-bold">
                                       {item.pontos_por_categoria['Sub-7'] ?? '-'}

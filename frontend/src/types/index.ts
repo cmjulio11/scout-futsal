@@ -54,6 +54,9 @@ export interface RankingEficienciaItem {
   saldo_gols_total: number;
   average: number;
   pontos_por_categoria: { [key: string]: number };
+  bonificacao?: number;
+  negativos?: number;
+  total_oficial?: number;
   zona_rebaixamento?: boolean;
 }
 

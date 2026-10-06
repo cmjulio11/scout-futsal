@@ -495,19 +495,138 @@ def parse_artilharia(evento_id: int) -> List[Dict[str, Any]]:
         
     return artilheiros
 
-def calcular_ranking_eficiencia(temporada: int = 2026) -> List[Dict[str, Any]]:
-    eventos = obter_eventos_iniciacao(temporada)
-    dados_categorias = {}
-    
-    for cat in ["Sub-7", "Sub-8", "Sub-9", "Sub-10"]:
-        ev_id = eventos.get(cat)
-        if ev_id:
-            dados_categorias[cat] = parse_classificacao(ev_id)
-        else:
-            dados_categorias[cat] = []
-            
+def parse_ranking_oficial(temporada: int = 2026) -> List[Dict[str, Any]]:
+    """
+    Faz o scraping direto da tabela oficial do Torneio União publicada pela FPFS:
+    https://eventos.admfutsal.com.br/ranking?grupo-cat=1&divisao=3
+    Contém a pontuação unificada oficial com jogos de mata-mata, bonificações
+    por fase alcançada e pontos disciplinares negativos (Art. 12 do Regulamento).
+    """
+    if temporada != 2026:
+        return []
+
+    url = f"{BASE_URL}/ranking?grupo-cat=1&divisao=3"
+    try:
+        html = _fetch_url(url)
+        soup = BeautifulSoup(html, "html.parser")
+        table = soup.find("table")
+        if not table:
+            return []
+
+        rows = table.find_all("tr")
+        ranking = []
+        current_club = None
+
+        def parse_pt_int(s: str) -> int:
+            clean = re.sub(r'[^\d-]', '', s)
+            return int(clean) if clean and clean.lstrip('-').isdigit() else 0
+
+        def parse_pt_float(s: str) -> float:
+            try:
+                return float(s.replace('.', '').replace(',', '.'))
+            except (ValueError, TypeError):
+                return 0.0
+
+        for r in rows:
+            tds = r.find_all("td")
+            if not tds:
+                continue
+
+            first_text = tds[0].get_text(strip=True)
+            # Linha principal de clube (posição numérica 1..24)
+            if first_text.isdigit() and len(tds) >= 12:
+                posicao = int(first_text)
+                clube_raw = tds[1].get_text(strip=True)
+                clube_formatado = formatar_nome_clube(clube_raw)
+                escudo_resolvido = resolver_escudo_local(clube_raw)
+
+                pts = parse_pt_int(tds[2].get_text(strip=True))
+                jogos = parse_pt_int(tds[3].get_text(strip=True))
+                v = parse_pt_int(tds[4].get_text(strip=True))
+                e = parse_pt_int(tds[5].get_text(strip=True))
+                d = parse_pt_int(tds[6].get_text(strip=True))
+                gp = parse_pt_int(tds[7].get_text(strip=True))
+                gc = parse_pt_int(tds[8].get_text(strip=True))
+                avg = parse_pt_float(tds[9].get_text(strip=True))
+                sg = parse_pt_int(tds[10].get_text(strip=True))
+
+                it_int = parse_pt_int(tds[11].get_text(strip=True))
+                it_val = round((pts / jogos * 1000.0), 1) if jogos > 0 else (float(it_int) if it_int > 0 else 0.0)
+
+                bonifi = parse_pt_int(tds[12].get_text(strip=True)) if len(tds) > 12 else 0
+                neg = parse_pt_int(tds[13].get_text(strip=True)) if len(tds) > 13 else 0
+                tot_int = parse_pt_int(tds[14].get_text(strip=True)) if len(tds) > 14 else 0
+
+                if posicao <= 8:
+                    chave = "OURO"
+                elif posicao <= 16:
+                    chave = "PRATA"
+                else:
+                    chave = "BRONZE"
+
+                current_club = {
+                    "posicao": posicao,
+                    "chave": chave,
+                    "clube": clube_formatado,
+                    "clube_completo": clube_raw,
+                    "escudo_url": escudo_resolvido,
+                    "pontos_total": pts,
+                    "jogos_total": jogos,
+                    "vitorias_total": v,
+                    "empates_total": e,
+                    "derrotas_total": d,
+                    "gols_pro_total": gp,
+                    "gols_contra_total": gc,
+                    "saldo_gols_total": sg,
+                    "average": avg,
+                    "indice_tecnico": it_val,
+                    "bonificacao": bonifi,
+                    "negativos": neg,
+                    "total_oficial": tot_int,
+                    "pontos_por_categoria": {},
+                    "zona_rebaixamento": posicao >= 22,
+                }
+                ranking.append(current_club)
+
+            elif current_club is not None:
+                # Sub-tabela de categorias (Sub-7, Sub-8, Sub-9, Sub-10)
+                inner_table = r.find("table")
+                if inner_table:
+                    for itr in inner_table.find_all("tr"):
+                        itds = itr.find_all("td")
+                        if itds and len(itds) >= 3:
+                            cat_name = itds[0].get_text(strip=True)
+                            if cat_name in ["Sub-7", "Sub-8", "Sub-9", "Sub-10"]:
+                                try:
+                                    current_club["pontos_por_categoria"][cat_name] = int(itds[1].get_text(strip=True))
+                                except (ValueError, TypeError):
+                                    pass
+                elif len(tds) >= 3:
+                    cat_name = tds[0].get_text(strip=True)
+                    if cat_name in ["Sub-7", "Sub-8", "Sub-9", "Sub-10"]:
+                        try:
+                            current_club["pontos_por_categoria"][cat_name] = int(tds[1].get_text(strip=True))
+                        except (ValueError, TypeError):
+                            pass
+
+        if len(ranking) >= 20:
+            print(f"[SCRAPER] Ranking Oficial FPFS carregado com sucesso: {len(ranking)} clubes!")
+            return ranking
+    except Exception as e:
+        print(f"[SCRAPER] Erro ao buscar ranking oficial da FPFS: {e}")
+
+    return []
+
+def calcular_ranking_eficiencia_fallback(temporada: int = 2026, dados_categorias: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """Cálculo tradicional somando as classificações das 4 categorias da 1ª fase."""
+    if not dados_categorias:
+        eventos = obter_eventos_iniciacao(temporada)
+        dados_categorias = {}
+        for cat in ["Sub-7", "Sub-8", "Sub-9", "Sub-10"]:
+            ev_id = eventos.get(cat)
+            dados_categorias[cat] = parse_classificacao(ev_id) if ev_id else []
+
     clubes_map: Dict[str, Dict[str, Any]] = {}
-    
     for cat, lista in dados_categorias.items():
         for item in lista:
             nome = item["clube"]
@@ -527,7 +646,6 @@ def calcular_ranking_eficiencia(temporada: int = 2026) -> List[Dict[str, Any]]:
                     "saldo_gols_total": 0,
                     "pontos_por_categoria": {},
                 }
-                
             c = clubes_map[nome]
             pts = item.get("pontos", 0)
             jgs = item.get("jogos", 0)
@@ -550,8 +668,11 @@ def calcular_ranking_eficiencia(temporada: int = 2026) -> List[Dict[str, Any]]:
         gp = c["gols_pro_total"]
         gc = c["gols_contra_total"]
         c["average"] = round(gp / max(gc, 1), 2)
+        c["bonificacao"] = 0
+        c["negativos"] = 0
+        c["total_oficial"] = int(round(it))
         lista_final.append(c)
-        
+
     lista_final.sort(
         key=lambda x: (
             x["indice_tecnico"],
@@ -562,7 +683,7 @@ def calcular_ranking_eficiencia(temporada: int = 2026) -> List[Dict[str, Any]]:
         ),
         reverse=True
     )
-    
+
     total = len(lista_final)
     for idx, c in enumerate(lista_final, start=1):
         c["posicao"] = idx
@@ -573,8 +694,17 @@ def calcular_ranking_eficiencia(temporada: int = 2026) -> List[Dict[str, Any]]:
         else:
             c["chave"] = "BRONZE"
         c["zona_rebaixamento"] = idx > (total - 3) if total >= 3 else False
-        
+
     return lista_final
+
+def calcular_ranking_eficiencia(temporada: int = 2026, dados_categorias: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    # 1. Tenta obter diretamente o ranking oficial publicado pela FPFS
+    ranking_oficial = parse_ranking_oficial(temporada)
+    if ranking_oficial and len(ranking_oficial) >= 20:
+        return ranking_oficial
+
+    # 2. Fallback caso o endpoint do ranking esteja indisponível
+    return calcular_ranking_eficiencia_fallback(temporada, dados_categorias)
 
 def get_classificacao_categoria(temporada: int, categoria: str) -> List[Dict[str, Any]]:
     cache_key = f"class_{temporada}_{categoria}"
@@ -694,6 +824,30 @@ def obter_dados_completos(temporada: int = 2026, forcar_atualizacao: bool = Fals
             
     ranking = calcular_ranking_eficiencia(temporada)
     
+    # Preserva o ranking da 1ª fase (que definiu as chaves Ouro, Prata e Bronze)
+    dados_anteriores = carregar_dados_locais(temporada)
+    ranking_fase1 = None
+    if dados_anteriores and "ranking_fase1" in dados_anteriores:
+        ranking_fase1 = dados_anteriores["ranking_fase1"]
+    elif dados_anteriores and "ranking_eficiencia" in dados_anteriores:
+        ranking_fase1 = dados_anteriores["ranking_eficiencia"]
+    else:
+        ranking_fase1 = calcular_ranking_eficiencia_fallback(temporada, classificacao_cat)
+
+    # Preserva customizações manuais de jogos (ex: vencedor_prorrogacao)
+    if dados_anteriores and "jogos" in dados_anteriores:
+        for cat, lista_nova in jogos_cat.items():
+            lista_antiga = dados_anteriores.get("jogos", {}).get(cat, [])
+            for j_novo in lista_nova:
+                for j_antigo in lista_antiga:
+                    if (j_novo.get("mandante") == j_antigo.get("mandante") and 
+                        j_novo.get("visitante") == j_antigo.get("visitante") and
+                        j_novo.get("fase") == j_antigo.get("fase")):
+                        if "vencedor_prorrogacao" in j_antigo:
+                            j_novo["vencedor_prorrogacao"] = j_antigo["vencedor_prorrogacao"]
+                        if "motivo_prorrogacao" in j_antigo:
+                            j_novo["motivo_prorrogacao"] = j_antigo["motivo_prorrogacao"]
+
     agora = datetime.utcnow().isoformat()
     if str(temporada) not in _LAST_SYNC:
         _LAST_SYNC[str(temporada)] = agora
@@ -703,6 +857,7 @@ def obter_dados_completos(temporada: int = 2026, forcar_atualizacao: bool = Fals
         "atualizado_em": _LAST_SYNC.get(str(temporada), agora),
         "classificacao": classificacao_cat,
         "ranking_eficiencia": ranking,
+        "ranking_fase1": ranking_fase1,
         "jogos": jogos_cat,
         "artilharia": artilharia_cat,
     }
