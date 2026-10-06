@@ -87,6 +87,8 @@ export default function CampeonatosPage() {
   }, [searchParams]);
 
   const [ranking, setRanking] = useState<RankingEficienciaItem[]>([]);
+  const [rankingFase1, setRankingFase1] = useState<RankingEficienciaItem[]>([]);
+  const [modoRanking, setModoRanking] = useState<'atual' | 'fase1'>('atual');
   const [classificacao, setClassificacao] = useState<ClassificacaoItem[]>([]);
   const [jogos, setJogos] = useState<JogoItem[]>([]);
   const [confrontos, setConfrontos] = useState<ConfrontoItem[]>([]);
@@ -258,6 +260,9 @@ export default function CampeonatosPage() {
       if (activeTab === 'ranking') {
         const data = await campeonatosService.obterRankingEficiencia(temporadaSelecionada);
         setRanking(data.ranking);
+        if (data.ranking_fase1 && data.ranking_fase1.length > 0) {
+          setRankingFase1(data.ranking_fase1);
+        }
         setAtualizadoEm(data.atualizado_em);
       } else if (activeTab === 'tabela') {
         const data = await campeonatosService.obterTabela(temporadaSelecionada, categoriaSelecionada);
@@ -783,10 +788,11 @@ export default function CampeonatosPage() {
   };
 
   const rankingFiltrado = useMemo(() => {
-    return ranking.filter((r) =>
+    const listaBase = modoRanking === 'fase1' && rankingFase1.length > 0 ? rankingFase1 : ranking;
+    return listaBase.filter((r) =>
       r.clube.toLowerCase().includes(busca.toLowerCase())
     );
-  }, [ranking, busca]);
+  }, [ranking, rankingFase1, modoRanking, busca]);
 
   const classificacaoFiltrada = useMemo(() => {
     return classificacao.filter((c) =>
@@ -2279,21 +2285,60 @@ export default function CampeonatosPage() {
                     </div>
                   </div>
 
-                  {/* Banner Informativo de Atualização Oficial */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-3.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-xs shadow-md">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span className="text-slate-300">
-                        <strong className="text-white font-bold">Classificação Oficial FPFS Atualizada:</strong> Tabela geral consolidada da Federação Paulista, computando os jogos eliminatórios de todas as categorias, bonificações de avanço de fase e pontuação disciplinar (Art. 12 do Regulamento).
-                      </span>
+                  {/* Seletor de Visão: Oficial FPFS (Com Mata-Mata) vs 1ª Fase Consolidada (Base dos Cruzamentos) */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit">
+                      <button
+                        type="button"
+                        onClick={() => setModoRanking('atual')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                          modoRanking === 'atual'
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Oficial FPFS (Com Mata-Mata)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setModoRanking('fase1')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                          modoRanking === 'fase1'
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <Shield className="w-3.5 h-3.5 text-blue-400" />
+                        <span>1ª Fase Consolidada (Base dos Cruzamentos)</span>
+                      </button>
                     </div>
+
                     <a
                       href="/playoffs"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white font-bold text-xs shrink-0 self-start sm:self-auto transition"
                     >
                       <Swords className="w-3.5 h-3.5" />
-                      <span>Ver Mata-Mata</span>
+                      <span>Ver Chaveamento Mata-Mata</span>
                     </a>
+                  </div>
+
+                  {/* Banner Informativo Dinâmico */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-3.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-xs shadow-md">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="text-slate-300">
+                        {modoRanking === 'fase1' ? (
+                          <>
+                            <strong className="text-white font-bold">Classificação da 1ª Fase Consolidada (23 Rodadas):</strong> Esta é a pontuação oficial que definiu as Chaves Ouro (1º-8º), Prata (9º-16º) e Bronze (17º-24º) e os cruzamentos de Quartas de Final (1º x 8º, 2º x 7º, etc.) com a vantagem do empate.
+                          </>
+                        ) : (
+                          <>
+                            <strong className="text-white font-bold">Classificação Geral Oficial FPFS Atualizada:</strong> Tabela consolidada da Federação Paulista computando os jogos eliminatórios de todas as categorias, bonificações oficiais (+300 pts/fase por categoria) e pontos disciplinares (Art. 12 do Regulamento).
+                          </>
+                        )}
+                      </span>
+                    </div>
                   </div>
 
                   {rankingFiltrado.length === 0 ? (

@@ -54,12 +54,14 @@ def obter_ranking_eficiencia(
     """
     dados = scraper_fpfs.obter_dados_completos(temporada)
     ranking = dados.get("ranking_eficiencia", [])
+    ranking_fase1 = dados.get("ranking_fase1", [])
     return {
         "temporada": temporada,
         "titulo": "Campeonato Paulista - Torneio União de Clubes (Série A1)",
         "atualizado_em": dados.get("atualizado_em"),
         "total_clubes": len(ranking),
         "ranking": ranking,
+        "ranking_fase1": ranking_fase1,
     }
 
 @router.get("/jogos")

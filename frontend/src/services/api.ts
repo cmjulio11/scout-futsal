@@ -82,6 +82,7 @@ export const campeonatosService = {
         atualizado_em: string;
         total_clubes: number;
         ranking: RankingEficienciaItem[];
+        ranking_fase1?: RankingEficienciaItem[];
       }>('/api/campeonatos/ranking-eficiencia', { params: { temporada } })
       .then((r) => r.data),
   obterJogos: (temporada: number, categoria: string) =>
