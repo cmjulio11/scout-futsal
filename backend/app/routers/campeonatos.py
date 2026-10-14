@@ -847,9 +847,20 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
             if not nome_clube:
                 return None
             nc = unicodedata.normalize('NFKD', nome_clube).encode('ascii', 'ignore').decode('ascii').lower().strip()
+            # 1. Match exato
             for t in times:
                 tc = unicodedata.normalize('NFKD', t.get("clube", "")).encode('ascii', 'ignore').decode('ascii').lower().strip()
-                if tc in nc or nc in tc or any(w in nc for w in tc.split() if len(w) > 3):
+                if tc == nc:
+                    return t
+            # 2. Match por substring direta
+            for t in times:
+                tc = unicodedata.normalize('NFKD', t.get("clube", "")).encode('ascii', 'ignore').decode('ascii').lower().strip()
+                if tc in nc or nc in tc:
+                    return t
+            # 3. Fallback por palavras-chave relevantes
+            for t in times:
+                tc = unicodedata.normalize('NFKD', t.get("clube", "")).encode('ascii', 'ignore').decode('ascii').lower().strip()
+                if any(w in nc for w in tc.split() if len(w) > 3):
                     return t
             return {"clube": nome_clube, "posicao": 999}
 
@@ -934,10 +945,9 @@ def obter_playoffs_chaveamento(
     classificacao = dados.get("classificacao", {})
     jogos = dados.get("jogos", {})
 
-    # Chaveamento Torneio União (mantém o chaveamento original da 1ª fase)
+    # Chaveamento Torneio União (mantém o chaveamento original da 1ª fase como projeção limpa)
     ranking_fase1 = dados.get("ranking_fase1") or ranking_geral
-    todos_jogos_uniao = [j for l in jogos.values() for j in l]
-    playoffs_uniao = _montar_estrutura_playoffs(ranking_fase1, todos_jogos_uniao)
+    playoffs_uniao = _montar_estrutura_playoffs(ranking_fase1, None)
 
     # Chaveamento por Categoria com amarrações de jogos oficiais
     playoffs_categorias = {}
