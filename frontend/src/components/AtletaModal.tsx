@@ -532,16 +532,39 @@ export default function AtletaModal({
         </div>
 
         {/* ========================================================================= */}
-        {/* FOOTER MODAL */}
+        {/* FOOTER MODAL & CRÉDITOS DO DESENVOLVEDOR */}
         {/* ========================================================================= */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between print:bg-white print:border-slate-200">
-          <span className="text-[11px] text-slate-500 flex items-center gap-1 print:text-slate-600">
-            <Sparkles className="w-3 h-3 text-blue-400 print:text-blue-600" />
-            Dados oficiais registrados na súmula da FPFS
-          </span>
+        <div className="p-3.5 sm:p-4 border-t border-slate-800 bg-slate-950/80 flex flex-col sm:flex-row items-center justify-between gap-2.5 print:bg-white print:border-slate-300 print:p-2 text-[11px]">
+          <div className="flex items-center gap-1.5 text-slate-400 print:text-slate-600 text-[10px] sm:text-xs">
+            <Sparkles className="w-3.5 h-3.5 text-blue-400 print:text-blue-600" />
+            <span>Ficha Oficial FPFS • <strong className="text-white print:text-slate-900">Intelligent Futsal Scout</strong></span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2.5 text-[10px] text-slate-400 print:text-slate-700">
+            <span>Desenvolvido por: <strong className="text-slate-200 print:text-slate-900 font-bold">JÚLIO MARTINS</strong></span>
+            <span className="hidden sm:inline">•</span>
+            <a
+              href="https://wa.me/5519992035026"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline flex items-center gap-1 font-semibold text-emerald-400 print:text-slate-800"
+            >
+              <span>📱</span> (19) 99203-5026
+            </a>
+            <span className="hidden sm:inline">•</span>
+            <a
+              href="https://instagram.com/juliocm.77"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline flex items-center gap-1 font-semibold text-pink-400 print:text-slate-800"
+            >
+              <span>📸</span> @juliocm.77
+            </a>
+          </div>
+
           <button
             onClick={onClose}
-            className="no-print px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white rounded-xl transition active:scale-95 cursor-pointer"
+            className="no-print px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white rounded-xl transition active:scale-95 cursor-pointer ml-auto sm:ml-0"
           >
             Fechar
           </button>

@@ -826,14 +826,36 @@ export default function DossieImpressaoModal({
             </div>
           </div>
 
-          {/* 7. RODAPÉ EXECUTIVO DO DOSSIÊ */}
+          {/* 7. RODAPÉ EXECUTIVO DO DOSSIÊ & CRÉDITOS DO DESENVOLVEDOR */}
           <div
-            className={`border-t pt-3 flex items-center justify-between text-[10px] ${
-              isEco ? 'border-slate-200 text-slate-500' : 'border-slate-800 text-slate-500'
+            className={`border-t pt-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] print:border-slate-300 print:text-slate-700 ${
+              isEco ? 'border-slate-200 text-slate-500' : 'border-slate-800 text-slate-400'
             }`}
           >
-            <span>Intelligent Futsal Scout • Relatório Técnico de Partida</span>
-            <span>Documento Confidencial da Comissão Técnica</span>
+            <div>
+              <span className="font-bold text-blue-500 print:text-blue-700">Intelligent Futsal Scout</span> • Relatório Técnico de Partida FPFS
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 text-[10px]">
+              <span>Desenvolvido por: <strong className={isEco ? 'text-slate-800' : 'text-slate-200 print:text-slate-900'}>JÚLIO MARTINS</strong></span>
+              <span className="text-slate-400 print:inline hidden sm:inline">•</span>
+              <a
+                href="https://wa.me/5519992035026"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline flex items-center gap-1 font-semibold text-emerald-600 print:text-slate-800"
+              >
+                <span>📱</span> (19) 99203-5026
+              </a>
+              <span className="text-slate-400 print:inline hidden sm:inline">•</span>
+              <a
+                href="https://instagram.com/juliocm.77"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline flex items-center gap-1 font-semibold text-pink-500 print:text-slate-800"
+              >
+                <span>📸</span> @juliocm.77
+              </a>
+            </div>
           </div>
         </div>
       </div>

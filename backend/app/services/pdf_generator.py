@@ -248,9 +248,16 @@ def gerar_pdf_atleta(ficha: Dict[str, Any]) -> bytes:
     {jogos_html}
   </div>
 
-  <div style="margin-top: 16px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8;">
-    <span>Dados oficiais catalogados da Federação Paulista de Futsal (FPFS)</span>
-    <span>Intelligent Futsal Scout • Relatório Gerado pelo Servidor</span>
+  <!-- RODAPÉ OFICIAL & CRÉDITOS DO DESENVOLVEDOR -->
+  <div style="margin-top: 14px; padding-top: 6px; border-top: 1.5px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; font-size: 8.5px; color: #475569; background: #f8fafc; padding: 6px 10px; border-radius: 6px;">
+    <div>
+      <strong style="color: #0f172a;">Intelligent Futsal Scout</strong> • Dados Oficiais FPFS
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <span>Desenvolvido por: <strong style="color: #1e40af; text-transform: uppercase;">Júlio Martins</strong></span>
+      <span>📱 WhatsApp: <strong style="color: #0f172a;">(19) 99203-5026</strong></span>
+      <span>📸 Instagram: <strong style="color: #be185d;">@juliocm.77</strong></span>
+    </div>
   </div>
 </body>
 </html>'''
@@ -592,12 +599,17 @@ def gerar_pdf_confronto(confronto_dados: Dict[str, Any], jogo_info: Optional[Dic
     </div>
   </div>
 
-  <!-- RODAPÉ -->
-  <div style="margin-top: 4px; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8;">
-    <span>Dados oficiais da Federação Paulista de Futsal (FPFS) • Intelligent Futsal Scout</span>
-    <span>Documento Técnico Gerado pelo Servidor • Página 1 de 1</span>
+  <!-- RODAPÉ EXECUTIVO & CRÉDITOS DO DESENVOLVEDOR -->
+  <div style="margin-top: 5px; padding-top: 4px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; font-size: 7.5px; color: #475569; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
+    <div>
+      <strong style="color: #0f172a;">Intelligent Futsal Scout</strong> • Dossiê Tático Oficial Pré-Jogo FPFS
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <span>Desenvolvido por: <strong style="color: #1e40af; text-transform: uppercase;">Júlio Martins</strong></span>
+      <span>📱 WhatsApp: <strong style="color: #0f172a;">(19) 99203-5026</strong></span>
+      <span>📸 Instagram: <strong style="color: #be185d;">@juliocm.77</strong></span>
+    </div>
   </div>
-
 </body>
 </html>'''
 
