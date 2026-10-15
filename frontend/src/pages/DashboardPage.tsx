@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
 import AtletaModal from '../components/AtletaModal';
-import { campeonatosService, scoutService } from '../services/api';
+import { campeonatosService } from '../services/api';
 import {
   formatarRodada,
   formatarNomeAtletaCurto,
@@ -36,8 +36,6 @@ import {
   Award,
   Building2,
   Swords,
-  Download,
-  Loader2,
   Navigation,
   Share2,
 } from 'lucide-react';
@@ -104,36 +102,8 @@ export default function DashboardPage() {
     setAtletaModalOpen(true);
   };
 
-  const [baixandoPdfProximo, setBaixandoPdfProximo] = useState(false);
-
   const handleAnalisarConfronto = (mandante: string, visitante: string) => {
     navigate(`/scout?mandante=${encodeURIComponent(mandante)}&visitante=${encodeURIComponent(visitante)}`);
-  };
-
-  const handleBaixarPdfProximoJogo = async () => {
-    if (!resumo?.meu_clube?.proximo_jogo) return;
-    const pj = resumo.meu_clube.proximo_jogo;
-    try {
-      setBaixandoPdfProximo(true);
-      toast.loading('Gerando Dossiê Pré-Jogo Oficial em PDF...', { id: 'pdf-dashboard' });
-      await scoutService.baixarPdfConfronto(
-        pj.mandante,
-        pj.visitante,
-        temporada,
-        undefined,
-        {
-          data: pj.data,
-          hora: pj.hora,
-        },
-        resumo?.meu_clube?.clube
-      );
-      toast.success('Dossiê em PDF baixado com sucesso!', { id: 'pdf-dashboard' });
-    } catch (err) {
-      console.error('Erro ao baixar PDF:', err);
-      toast.error('Erro ao gerar Dossiê em PDF. Tente novamente.', { id: 'pdf-dashboard' });
-    } finally {
-      setBaixandoPdfProximo(false);
-    }
   };
 
   return (
@@ -457,7 +427,7 @@ export default function DashboardPage() {
                   </div>
 
                   {resumo.meu_clube.proximo_jogo && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div className="pt-1">
                       <button
                         type="button"
                         onClick={() =>
@@ -466,26 +436,12 @@ export default function DashboardPage() {
                             resumo.meu_clube!.proximo_jogo!.visitante
                           )
                         }
-                        className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black py-2.5 px-3 rounded-xl shadow-lg shadow-blue-950/40 transition cursor-pointer"
+                        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs sm:text-sm font-black py-2.5 px-4 rounded-xl shadow-lg shadow-blue-950/40 transition cursor-pointer"
+                        title="Abrir Análise Técnica e Dossiê Completo no Scout"
                       >
                         <Target className="w-4 h-4 text-amber-300 shrink-0" />
-                        <span className="truncate">Analisar no Scout</span>
-                        <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleBaixarPdfProximoJogo}
-                        disabled={baixandoPdfProximo}
-                        className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 active:scale-95 text-white text-xs font-black py-2.5 px-3 rounded-xl shadow-lg shadow-emerald-950/40 transition cursor-pointer"
-                        title="Baixar Dossiê Pré-Jogo Oficial em PDF (1 página) para prancheta técnica"
-                      >
-                        {baixandoPdfProximo ? (
-                          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                        ) : (
-                          <Download className="w-4 h-4 shrink-0" />
-                        )}
-                        <span className="truncate">{baixandoPdfProximo ? 'Gerando...' : 'Dossiê PDF (1 Pág)'}</span>
+                        <span>Abrir Dossiê & Scout Tático do Confronto</span>
+                        <ArrowRight className="w-4 h-4 shrink-0" />
                       </button>
                     </div>
                   )}

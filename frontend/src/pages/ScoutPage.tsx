@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Trophy,
@@ -20,8 +20,6 @@ import {
   Target,
   User,
   Printer,
-  Download,
-  Loader2,
   Share2,
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
@@ -90,7 +88,9 @@ export default function ScoutPage() {
 
   // Modal Dossiê Tático Executivo em PDF
   const [dossieModalOpen, setDossieModalOpen] = useState(false);
-  const [baixandoPdfDireto, setBaixandoPdfDireto] = useState(false);
+
+  // Partida selecionada manualmente (se houver)
+  const [partidaManual, setPartidaManual] = useState<PartidaRodadaItem | null>(null);
 
   // Modal de Ginásio & Logística
   const [ginasioModalOpen, setGinasioModalOpen] = useState(false);
@@ -99,14 +99,44 @@ export default function ScoutPage() {
     matchParams?: WhatsAppConfrontoParams;
   }>({ nome: '' });
 
-  // Confronto oficial correspondente na rodada (se houver)
-  const partidaAtual = partidasRodada.find(
-    (p) =>
-      (p.mandante.toUpperCase() === mandante.toUpperCase() &&
-        p.visitante.toUpperCase() === visitante.toUpperCase()) ||
-      (p.mandante.toUpperCase() === visitante.toUpperCase() &&
-        p.visitante.toUpperCase() === mandante.toUpperCase())
-  );
+  // Confronto oficial correspondente na rodada (se houver) - prioriza jogos agendados / fase atual
+  const partidaAtual: PartidaRodadaItem | undefined = useMemo(() => {
+    if (
+      partidaManual &&
+      ((partidaManual.mandante.toUpperCase() === mandante.toUpperCase() &&
+        partidaManual.visitante.toUpperCase() === visitante.toUpperCase()) ||
+       (partidaManual.mandante.toUpperCase() === visitante.toUpperCase() &&
+        partidaManual.visitante.toUpperCase() === mandante.toUpperCase()))
+    ) {
+      return partidaManual;
+    }
+
+    const candidatos = partidasRodada.filter(
+      (p) =>
+        (p.mandante.toUpperCase() === mandante.toUpperCase() &&
+          p.visitante.toUpperCase() === visitante.toUpperCase()) ||
+        (p.mandante.toUpperCase() === visitante.toUpperCase() &&
+          p.visitante.toUpperCase() === mandante.toUpperCase())
+    );
+
+    if (candidatos.length === 0) return undefined;
+
+    // Prioridade 1: Confronto agendado com mesma ordem mandante x visitante
+    const exatoAgendado = candidatos.find(
+      (p) =>
+        p.mandante.toUpperCase() === mandante.toUpperCase() &&
+        p.visitante.toUpperCase() === visitante.toUpperCase() &&
+        p.status !== 'Encerrado'
+    );
+    if (exatoAgendado) return exatoAgendado;
+
+    // Prioridade 2: Qualquer confronto agendado entre os dois clubes
+    const qualquerAgendado = candidatos.find((p) => p.status !== 'Encerrado');
+    if (qualquerAgendado) return qualquerAgendado;
+
+    // Prioridade 3: Partida mais recente disputada na temporada (fim da lista)
+    return candidatos[candidatos.length - 1];
+  }, [partidaManual, partidasRodada, mandante, visitante]);
 
   // Seleção de Perspectiva / Ótica de Análise ("Meu Clube")
   const [perspectivaManual, setPerspectivaManual] = useState<string | null>(null);
@@ -130,35 +160,6 @@ export default function ScoutPage() {
 
   const meuClubeNome = isFocoVisitante ? visitante : mandante;
   const adversarioNome = isFocoVisitante ? mandante : visitante;
-
-  const handleBaixarPdfDireto = async () => {
-    if (!mandante || !visitante) return;
-    try {
-      setBaixandoPdfDireto(true);
-      toast.loading('Gerando Dossiê Pré-Jogo Oficial em PDF...', { id: 'pdf-direto' });
-      await scoutService.baixarPdfConfronto(
-        mandante,
-        visitante,
-        temporada,
-        categoriaAtiva,
-        partidaAtual
-          ? {
-              data: partidaAtual.data,
-              hora: partidaAtual.hora,
-              ginasio: partidaAtual.ginasio,
-              rodada: partidaAtual.rodada,
-            }
-          : undefined,
-        clubeFoco
-      );
-      toast.success('Dossiê em PDF baixado com sucesso!', { id: 'pdf-direto' });
-    } catch (err) {
-      console.error('Erro ao baixar PDF:', err);
-      toast.error('Erro ao gerar PDF. Você também pode clicar em Visualizar.', { id: 'pdf-direto' });
-    } finally {
-      setBaixandoPdfDireto(false);
-    }
-  };
 
   // 1. Carregar lista de clubes e partidas da rodada
   useEffect(() => {
@@ -293,6 +294,7 @@ export default function ScoutPage() {
   const handleSelecionarPartidaRodada = (p: PartidaRodadaItem) => {
     setMandante(p.mandante);
     setVisitante(p.visitante);
+    setPartidaManual(p);
     setModalPartidasOpen(false);
     toast.success(`Confronto carregado: ${p.mandante} x ${p.visitante}`);
   };
@@ -451,32 +453,17 @@ export default function ScoutPage() {
               </p>
             </div>
 
-            {/* Ações Rápidas: Baixar PDF Oficial + Visualizar / Imprimir + Confrontos da Rodada */}
+            {/* Ações Rápidas: Visualizar Dossiê + Confrontos da Rodada */}
             <div className="flex items-center gap-2.5 flex-wrap">
-              <button
-                type="button"
-                onClick={handleBaixarPdfDireto}
-                disabled={!confronto || baixandoPdfDireto}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-black transition shadow-lg shadow-emerald-600/30 active:scale-95 cursor-pointer"
-                title="Baixar PDF Oficial de 1 página pronto para prancheta técnica"
-              >
-                {baixandoPdfDireto ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
-                <span>{baixandoPdfDireto ? 'Gerando PDF...' : 'Baixar Dossiê (PDF)'}</span>
-              </button>
-
               <button
                 type="button"
                 onClick={() => setDossieModalOpen(true)}
                 disabled={!confronto}
-                className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 disabled:opacity-50 text-slate-200 text-xs sm:text-sm font-semibold transition shadow-sm active:scale-95 cursor-pointer"
-                title="Pré-visualizar folha A4 e imprimir pelo navegador"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs sm:text-sm font-black transition shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer"
+                title="Visualizar dossiê tático completo em folha A4 e imprimir ou salvar em PDF"
               >
-                <Printer className="w-4 h-4 text-blue-400" />
-                <span>Visualizar Folha</span>
+                <Printer className="w-4 h-4" />
+                <span>Visualizar Dossiê</span>
               </button>
 
               <button

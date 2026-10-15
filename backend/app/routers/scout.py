@@ -415,10 +415,11 @@ def baixar_dossie_confronto_pdf(
         "rodada": rodada_jogo,
     }
     
-    # Se não foi fornecido contexto explícito, tentar localizar nos jogos agendados da temporada
+    # Se não foi fornecido contexto explícito, tentar localizar nos jogos da temporada (priorizando agendados / fase atual)
     if not data_jogo:
         dados = scraper_fpfs.obter_dados_completos(ano)
         jogos_map = dados.get("jogos", {})
+        candidatos = []
         for cat_nome, j_list in jogos_map.items():
             for j in j_list:
                 jm = str(j.get("mandante", "")).upper()
@@ -426,13 +427,16 @@ def baixar_dossie_confronto_pdf(
                 m_up = mandante.upper()
                 v_up = visitante.upper()
                 if (m_up in jm or jm in m_up) and (v_up in jv or jv in v_up):
-                    jogo_info["data"] = j.get("data")
-                    jogo_info["hora"] = j.get("hora")
-                    jogo_info["ginasio"] = j.get("ginasio")
-                    jogo_info["rodada"] = scraper_fpfs.formatar_rodada(j.get("rodada", ""))
-                    break
-            if jogo_info.get("data"):
-                break
+                    candidatos.append(j)
+        
+        if candidatos:
+            # Prioriza jogo agendado (fase atual/mata-mata/próximo jogo)
+            agendado = next((c for c in candidatos if c.get("status") != "Encerrado"), None)
+            alvo = agendado or candidatos[-1]
+            jogo_info["data"] = alvo.get("data")
+            jogo_info["hora"] = alvo.get("hora")
+            jogo_info["ginasio"] = alvo.get("ginasio")
+            jogo_info["rodada"] = scraper_fpfs.formatar_rodada(alvo.get("rodada", ""))
 
     try:
         pdf_bytes = gerar_pdf_confronto(confronto_dados, jogo_info, clube_foco=clube_foco)

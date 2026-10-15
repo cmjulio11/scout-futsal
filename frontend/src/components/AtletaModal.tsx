@@ -11,10 +11,7 @@ import {
   AlertCircle,
   Activity,
   Printer,
-  Download,
-  Loader2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { campeonatosService } from '../services/api';
 import { formatarRodada } from '../utils/formatters';
 import type { FichaAtletaResponse } from '../types';
@@ -41,7 +38,6 @@ export default function AtletaModal({
   const [ficha, setFicha] = useState<FichaAtletaResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [baixandoPdf, setBaixandoPdf] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -93,26 +89,6 @@ export default function AtletaModal({
     setTimeout(cleanup, 2500);
   };
 
-  const handleDownloadPdfDireto = async () => {
-    if (!ficha) return;
-    try {
-      setBaixandoPdf(true);
-      await campeonatosService.baixarPdfAtleta(
-        temporada,
-        categoria,
-        idJogador,
-        idFase,
-        nomeAtleta || atleta?.nome
-      );
-      toast.success('Ficha técnica baixada em PDF com sucesso!');
-    } catch (err: any) {
-      console.error('Erro ao baixar PDF direto:', err);
-      toast.error('Não foi possível gerar o PDF pelo servidor no momento.');
-    } finally {
-      setBaixandoPdf(false);
-    }
-  };
-
   return (
     <div className="atleta-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in print:p-0 print:m-0 print:bg-transparent print:backdrop-blur-none print:static print:min-h-0 print:h-auto print:w-full print:block">
       <div className="atleta-modal-sheet bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden print:max-h-none print:shadow-none print:border-none print:rounded-none print:bg-white print:text-slate-900 print:w-full print:max-w-full print:min-h-0 print:h-auto print:m-0 print:p-0 print:block">
@@ -158,32 +134,16 @@ export default function AtletaModal({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Botão 1: Baixar PDF Oficial Direto (Server-Side) */}
-            <button
-              type="button"
-              onClick={handleDownloadPdfDireto}
-              disabled={baixandoPdf || loading || !ficha}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition shadow-sm cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Baixar arquivo PDF oficial gerado diretamente pelo servidor sem depender do navegador"
-            >
-              {baixandoPdf ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
-              <span className="hidden sm:inline">{baixandoPdf ? 'Gerando...' : 'Baixar PDF Direto'}</span>
-              <span className="sm:hidden">{baixandoPdf ? '...' : 'PDF'}</span>
-            </button>
-
-            {/* Botão 2: Imprimir / Visualizar no Navegador */}
+            {/* Botão Padronizado: Imprimir Ficha */}
             <button
               type="button"
               onClick={handlePrintAtleta}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition border border-slate-700 cursor-pointer active:scale-95"
-              title="Imprimir Ficha Técnica do Atleta pelo Navegador (A4)"
+              disabled={loading || !ficha}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition shadow-sm cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Imprimir ou Salvar em PDF a Ficha Técnica do Atleta (A4)"
             >
-              <Printer className="w-3.5 h-3.5 text-blue-400" />
-              <span className="hidden sm:inline">Imprimir / PDF</span>
+              <Printer className="w-3.5 h-3.5" />
+              <span>Imprimir Ficha</span>
             </button>
 
             <button
@@ -314,7 +274,7 @@ export default function AtletaModal({
                     {stats?.frequencia_gols_pct}%
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5 print:text-slate-600">
-                    marcou em {stats?.jogos_com_gol} de {stats?.jogos_totais_clube} jogos
+                    marcou em {stats?.jogos_com_gol} das {stats?.jogos_totais_clube} partidas do clube
                   </p>
                 </div>
 
@@ -327,7 +287,7 @@ export default function AtletaModal({
                   <p className="text-lg sm:text-xl font-black text-white print:text-slate-900">
                     {stats?.media_gols_jogo}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5 print:text-slate-600">gols / jogo que marcou</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 print:text-slate-600">gols / jogo em que marcou</p>
                 </div>
 
                 {/* 3. Gols em Casa */}

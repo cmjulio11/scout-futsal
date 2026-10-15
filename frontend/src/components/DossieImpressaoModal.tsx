@@ -21,11 +21,7 @@ import {
   Layers,
   Sun,
   Moon,
-  Download,
-  Loader2,
 } from 'lucide-react';
-import { scoutService } from '../services/api';
-import toast from 'react-hot-toast';
 
 interface DossieImpressaoModalProps {
   isOpen: boolean;
@@ -54,7 +50,6 @@ export default function DossieImpressaoModal({
 }: DossieImpressaoModalProps) {
   // Modo de visualização: 'eco' (Branco/Papel Econômico) ou 'escuro' (Apresentação Digital)
   const [tema, setTema] = useState<'eco' | 'escuro'>('eco');
-  const [baixandoPdf, setBaixandoPdf] = useState(false);
 
   if (!isOpen || !confronto) return null;
 
@@ -82,34 +77,6 @@ export default function DossieImpressaoModal({
     hour: '2-digit',
     minute: '2-digit',
   });
-
-  const handleBaixarPdfOficial = async () => {
-    try {
-      setBaixandoPdf(true);
-      toast.loading('Gerando Dossiê Pré-Jogo Oficial em PDF...', { id: 'pdf-confronto' });
-      await scoutService.baixarPdfConfronto(
-        mandante,
-        visitante,
-        2026,
-        categoriaAtiva,
-        partidaInfo
-          ? {
-              data: partidaInfo.data,
-              hora: partidaInfo.hora,
-              ginasio: partidaInfo.ginasio,
-              rodada: partidaInfo.rodada,
-            }
-          : undefined,
-        clubeFoco
-      );
-      toast.success('Dossiê em PDF baixado com sucesso!', { id: 'pdf-confronto' });
-    } catch (err) {
-      console.error('Erro ao baixar PDF oficial:', err);
-      toast.error('Erro ao gerar PDF oficial. Tente imprimir pelo navegador.', { id: 'pdf-confronto' });
-    } finally {
-      setBaixandoPdf(false);
-    }
-  };
 
   const handlePrint = () => {
     const nomeM = formatarNomeClubeCurto(mandante).replace(/[^a-zA-Z0-9]/g, '_');
@@ -181,31 +148,15 @@ export default function DossieImpressaoModal({
             </button>
           </div>
 
-          {/* Botão Baixar PDF Oficial (1 Página) */}
-          <button
-            type="button"
-            onClick={handleBaixarPdfOficial}
-            disabled={baixandoPdf}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-black transition shadow-lg shadow-emerald-600/30 active:scale-95 cursor-pointer"
-            title="Baixar arquivo PDF de 1 página gerado diretamente pelo servidor, pronto para prancheta"
-          >
-            {baixandoPdf ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            <span>{baixandoPdf ? 'Gerando PDF...' : 'Baixar PDF Oficial (1 Pág)'}</span>
-          </button>
-
-          {/* Botão Imprimir / Salvar PDF */}
+          {/* Botão Padronizado: Imprimir Dossiê */}
           <button
             type="button"
             onClick={handlePrint}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-black transition shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer"
-            title="Abrir caixa de diálogo de impressão do navegador"
+            title="Imprimir ou Salvar em PDF o Dossiê Tático (A4)"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimir Navegador</span>
+            <span>Imprimir Dossiê</span>
           </button>
 
           {/* Fechar */}
