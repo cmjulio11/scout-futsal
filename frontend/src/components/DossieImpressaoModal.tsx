@@ -37,6 +37,7 @@ interface DossieImpressaoModalProps {
   mandanteInfo: ConfrontoClubeInfo | null;
   visitanteInfo: ConfrontoClubeInfo | null;
   partidaInfo?: PartidaRodadaItem | null;
+  clubeFoco?: string | null;
 }
 
 export default function DossieImpressaoModal({
@@ -49,12 +50,30 @@ export default function DossieImpressaoModal({
   mandanteInfo,
   visitanteInfo,
   partidaInfo,
+  clubeFoco,
 }: DossieImpressaoModalProps) {
   // Modo de visualização: 'eco' (Branco/Papel Econômico) ou 'escuro' (Apresentação Digital)
   const [tema, setTema] = useState<'eco' | 'escuro'>('eco');
   const [baixandoPdf, setBaixandoPdf] = useState(false);
 
   if (!isOpen || !confronto) return null;
+
+  // Identifica se o Meu Clube é o Visitante
+  const norm = (s?: string | null) => (s || '').toLowerCase().trim();
+  const isVisitanteMeuClube = Boolean(
+    clubeFoco &&
+    (norm(visitante).includes(norm(clubeFoco)) || norm(clubeFoco).includes(norm(visitante)))
+  );
+
+  const adversarioNome = isVisitanteMeuClube ? mandante : visitante;
+  const meuClubeNome = isVisitanteMeuClube ? visitante : mandante;
+
+  const adversarioArtilheiros = isVisitanteMeuClube
+    ? confronto.mandante.principais_artilheiros
+    : confronto.visitante.principais_artilheiros;
+  const adversarioUltimos = isVisitanteMeuClube
+    ? confronto.mandante.ultimos_jogos
+    : confronto.visitante.ultimos_jogos;
 
   const dataAtual = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -80,7 +99,8 @@ export default function DossieImpressaoModal({
               ginasio: partidaInfo.ginasio,
               rodada: partidaInfo.rodada,
             }
-          : undefined
+          : undefined,
+        clubeFoco
       );
       toast.success('Dossiê em PDF baixado com sucesso!', { id: 'pdf-confronto' });
     } catch (err) {
@@ -675,7 +695,7 @@ export default function DossieImpressaoModal({
             </div>
           </div>
 
-          {/* 4. BLOCO 4: ÚLTIMOS 5 JOGOS DO ADVERSÁRIO (VISITANTE) */}
+          {/* 4. BLOCO 4: ÚLTIMOS 5 JOGOS DO ADVERSÁRIO */}
           <div
             className={`avoid-break rounded-2xl p-4 mb-5 border ${
               isEco
@@ -687,7 +707,7 @@ export default function DossieImpressaoModal({
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-amber-500 shrink-0" />
                 <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider">
-                  4. Termômetro dos Últimos 5 Jogos do Adversário ({formatarNomeClubeCurto(visitante)})
+                  4. Termômetro dos Últimos 5 Jogos do Adversário ({formatarNomeClubeCurto(adversarioNome)})
                 </h4>
               </div>
               <span className={`text-[10px] font-bold ${isEco ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -696,7 +716,7 @@ export default function DossieImpressaoModal({
             </div>
 
             <div className="space-y-2">
-              {confronto.visitante.ultimos_jogos.slice(0, 5).map((jogo, idx) => (
+              {adversarioUltimos && adversarioUltimos.slice(0, 5).map((jogo, idx) => (
                 <div
                   key={idx}
                   className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs ${
@@ -766,14 +786,14 @@ export default function DossieImpressaoModal({
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-inherit">
               <Flame className="w-4 h-4 text-amber-500 shrink-0" />
               <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider">
-                5. Radar de Ameaças: Artilheiros do Adversário ({formatarNomeClubeCurto(visitante)})
+                5. Radar de Ameaças: Artilheiros do Adversário ({formatarNomeClubeCurto(adversarioNome)})
               </h4>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {confronto.visitante.principais_artilheiros &&
-              confronto.visitante.principais_artilheiros.length > 0 ? (
-                confronto.visitante.principais_artilheiros.map((art, idx) => (
+              {adversarioArtilheiros &&
+              adversarioArtilheiros.length > 0 ? (
+                adversarioArtilheiros.map((art, idx) => (
                   <div
                     key={idx}
                     className={`p-3 rounded-xl border flex flex-col justify-between text-xs ${
@@ -815,7 +835,7 @@ export default function DossieImpressaoModal({
                     {art.marcou_contra_adversario && (
                       <div className="mt-2.5 pt-2 border-t border-inherit flex items-center gap-1 text-[10px] font-black text-rose-600">
                         <AlertTriangle className="w-3 h-3 shrink-0" />
-                        <span>Já marcou {art.gols_contra_adversario}x no rival</span>
+                        <span>Já marcou {art.gols_contra_adversario}x no {formatarNomeClubeCurto(meuClubeNome)}</span>
                       </div>
                     )}
                   </div>

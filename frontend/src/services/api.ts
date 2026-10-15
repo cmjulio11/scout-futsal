@@ -230,7 +230,8 @@ export const scoutService = {
       hora?: string;
       ginasio?: string;
       rodada?: string;
-    }
+    },
+    clubeFoco?: string | null
   ) => {
     const params: Record<string, any> = {
       mandante,
@@ -244,6 +245,7 @@ export const scoutService = {
     if (jogoInfo?.hora) params.hora_jogo = jogoInfo.hora;
     if (jogoInfo?.ginasio) params.ginasio_jogo = jogoInfo.ginasio;
     if (jogoInfo?.rodada) params.rodada_jogo = jogoInfo.rodada;
+    if (clubeFoco) params.clube_foco = clubeFoco;
 
     const response = await api.get('/api/scout/confronto/pdf', {
       params,

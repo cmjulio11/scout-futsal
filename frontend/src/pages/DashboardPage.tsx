@@ -124,7 +124,8 @@ export default function DashboardPage() {
         {
           data: pj.data,
           hora: pj.hora,
-        }
+        },
+        resumo?.meu_clube?.clube
       );
       toast.success('Dossiê em PDF baixado com sucesso!', { id: 'pdf-dashboard' });
     } catch (err) {

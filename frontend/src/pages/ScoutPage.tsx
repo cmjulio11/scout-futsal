@@ -108,6 +108,29 @@ export default function ScoutPage() {
         p.visitante.toUpperCase() === mandante.toUpperCase())
   );
 
+  // Seleção de Perspectiva / Ótica de Análise ("Meu Clube")
+  const [perspectivaManual, setPerspectivaManual] = useState<string | null>(null);
+
+  const norm = (s?: string | null) => (s || '').toLowerCase().trim();
+  const isMandanteMeuClube = Boolean(
+    clubeAtivo &&
+    (norm(mandante).includes(norm(clubeAtivo)) || norm(clubeAtivo).includes(norm(mandante)))
+  );
+  const isVisitanteMeuClube = Boolean(
+    clubeAtivo &&
+    (norm(visitante).includes(norm(clubeAtivo)) || norm(clubeAtivo).includes(norm(visitante)))
+  );
+
+  // Clube Foco: escolha manual > clube ativo (mandante ou visitante) > mandante por padrão
+  const clubeFoco = perspectivaManual || (isVisitanteMeuClube ? visitante : (isMandanteMeuClube ? mandante : mandante));
+
+  const isFocoVisitante = Boolean(
+    clubeFoco && (norm(visitante).includes(norm(clubeFoco)) || norm(clubeFoco).includes(norm(visitante)))
+  );
+
+  const meuClubeNome = isFocoVisitante ? visitante : mandante;
+  const adversarioNome = isFocoVisitante ? mandante : visitante;
+
   const handleBaixarPdfDireto = async () => {
     if (!mandante || !visitante) return;
     try {
@@ -125,7 +148,8 @@ export default function ScoutPage() {
               ginasio: partidaAtual.ginasio,
               rodada: partidaAtual.rodada,
             }
-          : undefined
+          : undefined,
+        clubeFoco
       );
       toast.success('Dossiê em PDF baixado com sucesso!', { id: 'pdf-direto' });
     } catch (err) {
@@ -352,6 +376,15 @@ export default function ScoutPage() {
   const visitanteInfo = confronto?.visitante.info;
   const mandanteMando = confronto?.mandante.estatisticas_mando.casa;
   const visitanteMando = confronto?.visitante.estatisticas_mando.fora;
+
+  const meuClubeInfo = isFocoVisitante ? visitanteInfo : mandanteInfo;
+  const adversarioInfo = isFocoVisitante ? mandanteInfo : visitanteInfo;
+  const meusArtilheiros = isFocoVisitante
+    ? confronto?.visitante.principais_artilheiros
+    : confronto?.mandante.principais_artilheiros;
+  const adversarioArtilheiros = isFocoVisitante
+    ? confronto?.mandante.principais_artilheiros
+    : confronto?.visitante.principais_artilheiros;
 
   const partidasFiltradas = partidasRodada
     .filter((p) => {
@@ -584,6 +617,60 @@ export default function ScoutPage() {
                     {tab.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* SELETOR DE ÓTICA DE ANÁLISE (MEU CLUBE vs ADVERSÁRIO) */}
+            <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-emerald-400" />
+                <div>
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                    Ótica da Análise:
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Defina qual é o seu clube para mapear os perigos e artilheiros do adversário
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setPerspectivaManual(mandante)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                    !isFocoVisitante
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title={`Ver scout sob a ótica do ${mandante}`}
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>{mandante}</span>
+                  {!isFocoVisitante && (
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-blue-700/80 uppercase">
+                      Meu Clube
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPerspectivaManual(visitante)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                    isFocoVisitante
+                      ? 'bg-amber-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title={`Ver scout sob a ótica do ${visitante}`}
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>{visitante}</span>
+                  {isFocoVisitante && (
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-700/80 uppercase">
+                      Meu Clube
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -1198,8 +1285,13 @@ export default function ScoutPage() {
                         alt={mandante}
                         className="w-5 h-5 object-contain"
                       />
-                      <h3 className="font-extrabold text-white text-sm">
-                        Últimos Jogos: {mandante}
+                      <h3 className="font-extrabold text-white text-sm flex items-center gap-2">
+                        <span>Últimos Jogos: {mandante}</span>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
+                          !isFocoVisitante ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30' : 'bg-slate-800 text-slate-400'
+                        }`}>
+                          {!isFocoVisitante ? 'Meu Clube (Casa)' : 'Adversário (Casa)'}
+                        </span>
                       </h3>
                     </div>
 
@@ -1261,8 +1353,13 @@ export default function ScoutPage() {
                         alt={visitante}
                         className="w-5 h-5 object-contain"
                       />
-                      <h3 className="font-extrabold text-white text-sm">
-                        Últimos Jogos: {visitante}
+                      <h3 className="font-extrabold text-white text-sm flex items-center gap-2">
+                        <span>Últimos Jogos: {visitante}</span>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
+                          isFocoVisitante ? 'bg-amber-600/30 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-400'
+                        }`}>
+                          {isFocoVisitante ? 'Meu Clube (Fora)' : 'Adversário (Fora)'}
+                        </span>
                       </h3>
                     </div>
 
@@ -1340,26 +1437,29 @@ export default function ScoutPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Artilheiros do Mandante */}
+                  {/* Artilheiros do Meu Clube */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <img
-                        src={mandanteInfo?.escudo_url || '/fpfs_shield.png'}
-                        alt={mandante}
+                        src={meuClubeInfo?.escudo_url || '/fpfs_shield.png'}
+                        alt={meuClubeNome}
                         className="w-5 h-5 object-contain"
                       />
-                      <h3 className="font-extrabold text-white text-sm">
-                        Artilheiros: {mandante}
+                      <h3 className="font-extrabold text-white text-sm flex items-center gap-2">
+                        <span>Nossos Artilheiros: {meuClubeNome}</span>
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-300 border border-blue-500/30 uppercase">
+                          Meu Clube
+                        </span>
                       </h3>
                     </div>
 
-                    {!confronto.mandante.principais_artilheiros || confronto.mandante.principais_artilheiros.length === 0 ? (
+                    {!meusArtilheiros || meusArtilheiros.length === 0 ? (
                       <p className="text-xs text-slate-500 py-4 bg-slate-950/50 rounded-xl text-center border border-slate-800">
                         Nenhum artilheiro catalogado nesta categoria.
                       </p>
                     ) : (
                       <div className="space-y-2.5">
-                        {confronto.mandante.principais_artilheiros.map((art, idx) => (
+                        {meusArtilheiros.map((art, idx) => (
                           <div
                             key={idx}
                             onClick={() => handleAbrirFichaAtleta(art)}
@@ -1394,8 +1494,8 @@ export default function ScoutPage() {
                                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
                                   {art.categoria && <span>{art.categoria}</span>}
                                   {art.marcou_contra_adversario && (
-                                    <span className="text-rose-400 font-bold flex items-center gap-1">
-                                      ⚠️ Já marcou {art.gols_contra_adversario} gol(s) no {visitante}!
+                                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                      ⚽ Já marcou {art.gols_contra_adversario} gol(s) no {adversarioNome}!
                                     </span>
                                   )}
                                 </div>
@@ -1413,26 +1513,29 @@ export default function ScoutPage() {
                     )}
                   </div>
 
-                  {/* Artilheiros do Visitante (Ameaça para o Mandante) */}
+                  {/* Artilheiros do Adversário (Ameaça para o Meu Clube) */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <img
-                        src={visitanteInfo?.escudo_url || '/fpfs_shield.png'}
-                        alt={visitante}
+                        src={adversarioInfo?.escudo_url || '/fpfs_shield.png'}
+                        alt={adversarioNome}
                         className="w-5 h-5 object-contain"
                       />
-                      <h3 className="font-extrabold text-white text-sm">
-                        Ameaças do Adversário: {visitante}
+                      <h3 className="font-extrabold text-white text-sm flex items-center gap-2">
+                        <span>Radar de Ameaças: {adversarioNome}</span>
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-600/30 text-rose-300 border border-rose-500/30 uppercase">
+                          Atenção na Marcação
+                        </span>
                       </h3>
                     </div>
 
-                    {!confronto.visitante.principais_artilheiros || confronto.visitante.principais_artilheiros.length === 0 ? (
+                    {!adversarioArtilheiros || adversarioArtilheiros.length === 0 ? (
                       <p className="text-xs text-slate-500 py-4 bg-slate-950/50 rounded-xl text-center border border-slate-800">
-                        Nenhum artilheiro catalogado nesta categoria.
+                        Nenhum artilheiro adversário catalogado nesta categoria.
                       </p>
                     ) : (
                       <div className="space-y-2.5">
-                        {confronto.visitante.principais_artilheiros.map((art, idx) => (
+                        {adversarioArtilheiros.map((art, idx) => (
                           <div
                             key={idx}
                             onClick={() => handleAbrirFichaAtleta(art)}
@@ -1472,7 +1575,7 @@ export default function ScoutPage() {
                                   {art.categoria && <span>{art.categoria}</span>}
                                   {art.marcou_contra_adversario ? (
                                     <span className="text-rose-400 font-extrabold flex items-center gap-1 bg-rose-500/15 px-1.5 py-0.5 rounded border border-rose-500/20">
-                                      ⚠️ Alerta: Marcou {art.gols_contra_adversario} gol(s) no {mandante}!
+                                      ⚠️ Alerta: Marcou {art.gols_contra_adversario} gol(s) no {meuClubeNome}!
                                     </span>
                                   ) : (
                                     <span>{art.gols} gols no Paulista</span>
@@ -1738,6 +1841,7 @@ export default function ScoutPage() {
         mandanteInfo={mandanteInfo || null}
         visitanteInfo={visitanteInfo || null}
         partidaInfo={partidaAtual || null}
+        clubeFoco={clubeFoco}
       />
 
       {/* Modal de Localização & Rotas do Ginásio */}

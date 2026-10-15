@@ -393,6 +393,7 @@ def baixar_dossie_confronto_pdf(
     hora_jogo: Optional[str] = Query(None, description="Hora da partida"),
     ginasio_jogo: Optional[str] = Query(None, description="Ginásio da partida"),
     rodada_jogo: Optional[str] = Query(None, description="Rodada da partida"),
+    clube_foco: Optional[str] = Query(None, description="Clube sob cuja ótica o dossiê será gerado"),
 ):
     """
     Gera e retorna o Dossiê Tático Pré-Jogo Oficial em PDF (1 página de prancheta)
@@ -434,7 +435,7 @@ def baixar_dossie_confronto_pdf(
                 break
 
     try:
-        pdf_bytes = gerar_pdf_confronto(confronto_dados, jogo_info)
+        pdf_bytes = gerar_pdf_confronto(confronto_dados, jogo_info, clube_foco=clube_foco)
         m_clean = mandante.strip().replace(" ", "_")
         v_clean = visitante.strip().replace(" ", "_")
         filename_raw = f"Dossie_PreJogo_{m_clean}_x_{v_clean}_FPFS_{ano}.pdf"

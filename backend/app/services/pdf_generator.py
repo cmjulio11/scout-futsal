@@ -265,15 +265,35 @@ def gerar_pdf_atleta(ficha: Dict[str, Any]) -> bytes:
     return _render_html_para_pdf(html)
 
 
-def gerar_pdf_confronto(confronto_dados: Dict[str, Any], jogo_info: Optional[Dict[str, Any]] = None) -> bytes:
+def gerar_pdf_confronto(
+    confronto_dados: Dict[str, Any],
+    jogo_info: Optional[Dict[str, Any]] = None,
+    clube_foco: Optional[str] = None
+) -> bytes:
     m_info = confronto_dados.get("mandante", {}).get("info", {})
     v_info = confronto_dados.get("visitante", {}).get("info", {})
     m_mando = confronto_dados.get("mandante", {}).get("estatisticas_mando", {}).get("casa", {})
     v_mando = confronto_dados.get("visitante", {}).get("estatisticas_mando", {}).get("fora", {})
     sub_comp = confronto_dados.get("sub_categorias", [])
+    m_art = confronto_dados.get("mandante", {}).get("principais_artilheiros", [])
     v_art = confronto_dados.get("visitante", {}).get("principais_artilheiros", [])
     m_ultimos = confronto_dados.get("mandante", {}).get("ultimos_jogos", [])
     v_ultimos = confronto_dados.get("visitante", {}).get("ultimos_jogos", [])
+
+    m_nome = str(m_info.get("clube", "")).lower()
+    v_nome = str(v_info.get("clube", "")).lower()
+    foco = str(clube_foco or "").lower().strip()
+
+    # Se o clube analisado for o visitante (ex: Pulo jogando fora contra a Portuguesa):
+    # O adversário a ser marcado é o Mandante (Portuguesa)!
+    if foco and (foco in v_nome or v_nome in foco):
+        adversario_info = m_info
+        adversario_art = m_art
+        meu_clube_info = v_info
+    else:
+        adversario_info = v_info
+        adversario_art = v_art
+        meu_clube_info = m_info
 
     temporada = confronto_dados.get("temporada", 2026)
     agora_str = datetime.now().strftime("%d/%m/%Y às %H:%M")
@@ -309,7 +329,7 @@ def gerar_pdf_confronto(confronto_dados: Dict[str, Any], jogo_info: Optional[Dic
     ])
 
     # Artilheiros adversários perigosos
-    artilheiros_v_html = "".join([
+    artilheiros_adv_html = "".join([
         f'''<div style="flex: 1; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 6px; padding: 5px 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-size: 8px; font-weight: 800; color: #be123c; background: #ffe4e6; padding: 1px 4px; border-radius: 3px;">{a.get('categoria', 'Iniciação')}</span>
@@ -322,8 +342,8 @@ def gerar_pdf_confronto(confronto_dados: Dict[str, Any], jogo_info: Optional[Dic
                 {("⚠️ " + str(a.get('gols_contra_adversario')) + " gols contra nós") if a.get('marcou_contra_adversario') else "Destaque ofensivo"}
             </div>
         </div>'''
-        for a in v_art[:3]
-    ]) if v_art else '<div style="color: #64748b; font-size: 9px; padding: 4px;">Nenhum artilheiro em destaque catalogado.</div>'
+        for a in adversario_art[:3]
+    ]) if adversario_art else '<div style="color: #64748b; font-size: 9px; padding: 4px;">Nenhum artilheiro adversário em destaque catalogado.</div>'
 
     # Últimos 5 jogos
     def _render_ultimos(jogos_lista):
@@ -552,11 +572,11 @@ def gerar_pdf_confronto(confronto_dados: Dict[str, Any], jogo_info: Optional[Dic
   <!-- 5. RADAR DE AMEAÇAS OFENSIVAS DO ADVERSÁRIO -->
   <div style="margin-bottom: 6px;">
     <div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #be123c; margin-bottom: 3px; display: flex; justify-content: space-between;">
-      <span>🔥 Atenção na Marcação — Principais Goleadores do {v_info.get('clube')}</span>
+      <span>🔥 Atenção na Marcação — Principais Goleadores do {adversario_info.get('clube')}</span>
       <span style="color: #64748b; font-size: 8px;">Monitoramento individual FPFS</span>
     </div>
     <div style="display: flex; gap: 6px;">
-      {artilheiros_v_html}
+      {artilheiros_adv_html}
     </div>
   </div>
 
