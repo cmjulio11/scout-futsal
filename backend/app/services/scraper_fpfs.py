@@ -74,7 +74,7 @@ def resolver_escudo_local(nome_clube: str) -> str:
     if "BATEBOLA" in n: return "/escudos/batebola.png"
     if "TAUBAT" in n: return "/escudos/taubat_.png"
     if "UNI" in n and "RD" in n: return "/escudos/uni_o_rd.png"
-    if "SANCAETANENSE" in n or "LIGA SAN" in n: return "/escudos/liga_s_o_caetano.png"
+    if "LIGA" in n or "SANCAETANENSE" in n: return "/escudos/liga_s_o_caetano.png"
     if "RSFC" in n or "CAETANO" in n: return "/escudos/rsfc.png"
     if "SANTO ANDR" in n: return "/escudos/ad_santo_andr_.png"
     if "PORTUGUESA" in n: return "/escudos/portuguesa.png"
@@ -112,7 +112,7 @@ def formatar_nome_clube(nome: str) -> str:
     if "BATEBOLA" in n: return "A.D. BATEBOLA"
     if "TAUBAT" in n: return "TAUBATÉ FUTSAL"
     if "UNI" in n and "RD" in n: return "UNIÃO RD"
-    if "SANCAETANENSE" in n or "LIGA SAN" in n: return "LIGA SÃO CAETANO"
+    if "LIGA" in n or "SANCAETANENSE" in n: return "LIGA SÃO CAETANO"
     if "RSFC" in n or "CAETANO" in n: return "SÃO CAETANO / RSFC"
     if "SANTO ANDR" in n: return "AD SANTO ANDRÉ"
     if "PORTUGUESA" in n: return "PORTUGUESA"
@@ -293,6 +293,8 @@ def parse_jogos(evento_id: int) -> List[Dict[str, Any]]:
 
     for pill_text, table in panes_data:
         pill_upper = pill_text.upper()
+        is_uniao = "UNI" in pill_upper or "COPA UNI" in pill_upper
+        campeonato = "uniao" if is_uniao else "paulista"
 
         # Determina fase, chave e rodada da aba
         if "CLASSIFICATORIA" in pill_upper or not pill_text:
@@ -313,7 +315,20 @@ def parse_jogos(evento_id: int) -> List[Dict[str, Any]]:
                 chave_fase = None
 
             # Determina Tipo de Fase
-            if "QUART" in pill_upper:
+            if is_uniao:
+                if "SEMI" in pill_upper:
+                    fase = "Semifinal"
+                    rodada_base = f"Torneio União - Semifinal ({chave_fase.title()})" if chave_fase else "Torneio União - Semifinal"
+                    rodada_num_fase = 31
+                elif "FINAL" in pill_upper:
+                    fase = "Final"
+                    rodada_base = f"Torneio União - Final ({chave_fase.title()})" if chave_fase else "Torneio União - Final"
+                    rodada_num_fase = 32
+                else:
+                    fase = "Quartas de Final"
+                    rodada_base = f"Torneio União - Quartas ({chave_fase.title()})" if chave_fase else "Torneio União - Quartas"
+                    rodada_num_fase = 30
+            elif "QUART" in pill_upper:
                 fase = "Quartas de Final"
                 rodada_base = f"Quartas de Final ({chave_fase.title()})" if chave_fase else "Quartas de Final"
                 rodada_num_fase = 24
@@ -436,6 +451,7 @@ def parse_jogos(evento_id: int) -> List[Dict[str, Any]]:
                 "sumula_url": sumula_url,
                 "fase": fase,
                 "chave": chave_fase,
+                "campeonato": campeonato,
             })
 
     return jogos

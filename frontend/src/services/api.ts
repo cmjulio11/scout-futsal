@@ -179,8 +179,8 @@ export const campeonatosService = {
     api.post('/api/campeonatos/sincronizar', null, { params: { temporada } }).then((r) => r.data),
   obterSyncStatus: () =>
     api.get<SyncStatusResponse>('/api/campeonatos/sync-status').then((r) => r.data),
-  obterPlayoffs: (temporada: number = 2026) =>
-    api.get<PlayoffsResponse>('/api/campeonatos/playoffs', { params: { temporada } }).then((r) => r.data),
+  obterPlayoffs: (temporada: number = 2026, campeonato: string = 'paulista') =>
+    api.get<PlayoffsResponse>('/api/campeonatos/playoffs', { params: { temporada, campeonato } }).then((r) => r.data),
 };
 
 export const scoutService = {

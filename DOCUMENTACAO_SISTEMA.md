@@ -95,8 +95,8 @@ flowchart TD
 ---
 
 ### MÓDULO 1: AUTENTICAÇÃO, CONTROLE DE ACESSO E GESTÃO DE USUÁRIOS
-- **Páginas:** [`LoginPage.tsx`](file:///c:/Temp/Scout_Futsal_Iniciacao/frontend/src/pages/LoginPage.tsx), [`UserManagementPage.tsx`](file:///c:/Temp/Scout_Futsal_Iniciacao/frontend/src/pages/UserManagementPage.tsx)
-- **Backend:** [`auth.py`](file:///c:/Temp/Scout_Futsal_Iniciacao/backend/app/auth.py), [`users.py`](file:///c:/Temp/Scout_Futsal_Iniciacao/backend/app/routers/users.py)
+- **Páginas:** `LoginPage.tsx`, `UserManagementPage.tsx`
+- **Backend:** `auth.py`, `users.py`
 - **Recursos:**
   - Login seguro com email e senha utilizando hash **bcrypt** e tokens de sessão **JWT (Bearer token)** com tempo de expiração configurável.
   - **Dois Níveis de Acesso:**
@@ -108,7 +108,7 @@ flowchart TD
 ---
 
 ### MÓDULO 2: DASHBOARD INTELIGENTE DA TEMPORADA
-- **Página:** [`DashboardPage.tsx`](file:///c:/Temp/Scout_Futsal_Iniciacao/frontend/src/pages/DashboardPage.tsx)
+- **Página:** `DashboardPage.tsx`
 - **Endpoint:** `GET /api/campeonatos/dashboard-resumo`
 - **Recursos:**
   - **Cards de KPIs Gerais:** Total de 24 Clubes, 4 Categorias, mais de 1.000 Atletas monitorados, 1.284 Jogos apurados e 100% de súmulas indexadas.
@@ -122,7 +122,7 @@ flowchart TD
 ---
 
 ### MÓDULO 3: CAMPEONATOS, CLASSIFICAÇÃO E INTELIGÊNCIA FPFS
-- **Página:** [`CampeonatosPage.tsx`](file:///c:/Temp/Scout_Futsal_Iniciacao/frontend/src/pages/CampeonatosPage.tsx)
+- **Página:** `CampeonatosPage.tsx`
 - **Endpoints:**
   - `GET /api/campeonatos/tabela?temporada=2026&categoria=Sub-X`
   - `GET /api/campeonatos/ranking-eficiencia?temporada=2026`
@@ -157,36 +157,34 @@ flowchart TD
 
 ---
 
-### MÓDULO 4: PLAYOFFS, MATA-MATA E SIMULADOR INTERATIVO
-- **Página:** [`PlayoffsPage.tsx`](file:///c:/Temp/Scout_Futsal_Iniciacao/frontend/src/pages/PlayoffsPage.tsx)
-- **Backend:** [`campeonatos.py`](file:///c:/Temp/Scout_Futsal_Iniciacao/backend/app/routers/campeonatos.py#L640-L950)
-- **Endpoint:** `GET /api/campeonatos/playoffs?temporada=2026`
+### MÓDULO 4: PLAYOFFS, MATA-MATA DUAL E SIMULADOR INTERATIVO
+- **Página:** `PlayoffsPage.tsx`
+- **Backend:** `campeonatos.py`
+- **Endpoint:** `GET /api/campeonatos/playoffs?temporada=2026&campeonato=paulista|uniao`
+- **Arquitetura de Isolamento dos Dois Campeonatos:**
+  - O sistema separa estritamente os dois torneios estaduais organizados pela FPFS para evitar qualquer contaminação entre resultados concluídos e confrontos futuros:
+    1. **Campeonato Estadual Paulista (Finalizado em Outubro/2026):**
+       - Disputado individualmente nas 4 categorias (Sub-7 a Sub-10).
+       - Quartas, Semifinais e Finais em jogo único com mando da melhor campanha.
+       - Campeões oficiais consagrados com placares reais (ex: Sub-8 Prata: Indaiatuba 2x4 Liga São Caetano, Audax 3x1 RSFC e Final: Audax 2x0 Liga São Caetano $\implies$ **Audax Campeão**).
+    2. **Torneio União (Mata-Mata em Jogos de Ida e Volta a partir de 17/10/2026):**
+       - 24 clubes divididos nas Chaves Ouro (1º-8º), Prata (9º-16º) e Bronze (17º-24º) conforme o Ranking de Eficiência consolidado da 1ª fase.
+       - Os confrontos eliminatórios de Quartas de Final ocorrem em **2 partidas (Jogo 1 - Ida e Jogo 2 - Volta)** em cada categoria individualmente, com a equipe de melhor campanha decidindo o Jogo 2 em seu ginásio.
 - **Recursos Principais:**
-  - **Divisão em 3 Chaves:**
+  - **Seletor de Competições no Topo:** Alternância em 1 clique entre o Campeonato Paulista e o Torneio União com recarregamento reativo.
+  - **Divisão em 3 Chaves Oficiais:**
     - **Chave Ouro:** 1º ao 8º colocados
     - **Chave Prata:** 9º ao 16º colocados
     - **Chave Bronze:** 17º ao 24º colocados
-  - **Estrutura das Fases Eliminatórias:**
-    - **Quartas de Final (Jogo Único):**
-      - QF1: 1º x 8º
-      - QF2: 2º x 7º
-      - QF3: 3º x 6º
-      - QF4: 4º x 5º
-    - **Semifinais:**
-      - Pareamento inteligente com as partidas reais marcadas pela FPFS (respeitando o cruzamento olímpico da federação).
-    - **Grande Final:**
-      - Pareamento com as finais oficiais e consagração do Campeão.
+  - **Cards com Suporte a Partidas de Ida e Volta:**
+    - Exibe data, horário, ginásio e placar do Jogo 1 (Ida) e do Jogo 2 (Volta - Decisão) de forma estruturada.
   - **Resolução de Empates e Critério de Desempate:**
     - Se a partida terminar empatada no tempo regulamentar, o sistema verifica primeiro se há vencedor anotado em prorrogação/pênaltis no banco de dados.
-    - Caso não haja prorrogação anotada, aplica o critério do Regulamento FPFS: a equipe de melhor campanha na 1ª fase (mandante) tem a vantagem do empate e avança de fase.
+    - Caso não haja prorrogação anotada, aplica o critério do Regulamento FPFS: a equipe de melhor campanha (mandante do jogo de volta) tem a vantagem do empate e avança de fase.
   - **Algoritmo de Desambiguação de Clubes em 3 Níveis:**
-    - Previne erros entre equipes de nomes similares (ex: *Liga São Caetano* vs *São Caetano / RSFC*).
-    - Prioridade 1: Igualdade exata da string normalizada sem acentos.
-    - Prioridade 2: Substring contida de forma integral.
-    - Prioridade 3: Palavras-chave relevantes com comprimento superior a 3 caracteres.
-  - **Simulador Interativo da 23ª Rodada:**
-    - Permite ao treinador simular vitórias, empates e derrotas nos confrontos da última rodada da 1ª fase.
-    - O sistema recalcula em tempo real no cliente as pontuações, a ordem de classificação geral e remonta todo o bracket dos playoffs instantaneamente.
+    - Previne erros entre equipes de nomes similares (ex: *Liga São Caetano* vs *São Caetano / RSFC*), garantindo que a Liga São Caetano e o RSFC sejam associados aos confrontos corretos da FPFS.
+  - **Simulador Interativo da 23ª Rodada (What-If):**
+    - Permite ao treinador simular vitórias, empates e derrotas nos confrontos da última rodada da 1ª fase, recalculando em tempo real no cliente as pontuações e remontando o chaveamento.
   - **Simulador Interativo de Mata-Mata:**
     - Clique em qualquer time para avançá-lo manualmente no chaveamento e simular cenários futuros.
     - Botão de reset rápido para restaurar o chaveamento oficial da FPFS.
@@ -194,8 +192,8 @@ flowchart TD
 ---
 
 ### MÓDULO 5: SCOUT PRÉ-JOGO, DOSSIÊ TÁTICO E LOGÍSTICA
-- **Página:** [`ScoutPage.tsx`](file:///c:/Temp/Scout_Futsal_Iniciacao/frontend/src/pages/ScoutPage.tsx)
-- **Backend:** [`scout.py`](file:///c:/Temp/Scout_Futsal_Iniciacao/backend/app/routers/scout.py), [`pdf_generator.py`](file:///c:/Temp/Scout_Futsal_Iniciacao/backend/app/services/pdf_generator.py)
+- **Página:** `ScoutPage.tsx`
+- **Backend:** `scout.py`, `pdf_generator.py`
 - **Endpoints:**
   - `GET /api/scout/clubes`
   - `GET /api/scout/partidas-rodada`
@@ -219,8 +217,8 @@ flowchart TD
 ---
 
 ### MÓDULO 6: FICHA TÉCNICA COMPLETA DO ATLETA
-- **Componente:** [`AtletaModal.tsx`](file:///c:/Temp/Scout_Futsal_Iniciacao/frontend/src/components/AtletaModal.tsx)
-- **Backend:** [`campeonatos.py`](file:///c:/Temp/Scout_Futsal_Iniciacao/backend/app/routers/campeonatos.py#L284-L380)
+- **Componente:** `AtletaModal.tsx`
+- **Backend:** `campeonatos.py`
 - **Endpoints:**
   - `GET /api/campeonatos/atleta?temporada=2026&categoria=Sub-X&id_jogador=YYYY`
   - `GET /api/campeonatos/atleta/pdf`
@@ -236,7 +234,7 @@ flowchart TD
 ---
 
 ### MÓDULO 7: ROBÔ DE SINCRONIZAÇÃO E WEB CRAWLER FPFS
-- **Arquivos:** [`scraper_fpfs.py`](file:///c:/Temp/Scout_Futsal_Iniciacao/backend/app/services/scraper_fpfs.py), [`sync_manager.py`](file:///c:/Temp/Scout_Futsal_Iniciacao/backend/app/services/sync_manager.py)
+- **Arquivos:** `scraper_fpfs.py`, `sync_manager.py`
 - **Endpoints:**
   - `GET /api/campeonatos/sync-status`
   - `POST /api/campeonatos/sincronizar` (Exclusivo Administrador)

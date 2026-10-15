@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel
 import urllib.parse
 import unicodedata
+import re
 
 from ..services import scraper_fpfs
 from ..services.sync_manager import sync_manager
@@ -637,18 +638,22 @@ def sincronizar_com_federacao(
     return resultado
 
 
-def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: List[Dict[str, Any]] = None) -> Dict[str, Any]:
+def _montar_estrutura_playoffs(
+    ranking_lista: List[Dict[str, Any]],
+    jogos_cat: List[Dict[str, Any]] = None,
+    tipo_campeonato: str = "paulista"
+) -> Dict[str, Any]:
     """
     Constrói as Chaves Ouro, Prata e Bronze a partir de uma lista ranqueada oficial (24 clubes).
-    Cada chave possui 8 equipes e 4 confrontos de Quartas de Final:
-      QF1: 1º x 8º  (ou 9º x 16º / 17º x 24º)
-      QF2: 2º x 7º  (ou 10º x 15º / 18º x 23º)
-      QF3: 3º x 6º  (ou 11º x 14º / 19º x 22º)
-      QF4: 4º x 5º  (ou 12º x 13º / 20º x 21º)
-    Cruzamentos das Semifinais:
-      SF1: Vencedor QF1 x Vencedor QF4
-      SF2: Vencedor QF2 x Vencedor QF3
+    Filtra estritamente pelo tipo_campeonato ('paulista' ou 'uniao') para evitar contaminação
+    entre o mata-mata finalizado do Paulista e o mata-mata em andamento do Torneio União.
     """
+    # Filtra apenas os jogos do campeonato solicitado
+    jogos_filtrados = [
+        j for j in (jogos_cat or [])
+        if j.get("campeonato", "paulista") == tipo_campeonato and j.get("fase") != "Fase Classificatória"
+    ]
+
     def _processar_confronto(m_time: Optional[Dict[str, Any]], v_time: Optional[Dict[str, Any]], titulo: str, id_conf: str, fase_nome: str, time_tipo: str = "QF", nome_chave: str = "BRONZE") -> Dict[str, Any]:
         if not m_time and not v_time:
             return {
@@ -694,19 +699,23 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
             pos_m, pos_v = pos_v, pos_m
 
         vantagem = m_time.get("clube")
-        tm = m_time.get("clube", "").strip().lower()
-        tv = v_time.get("clube", "").strip().lower()
-        jogo_oficial = None
+        
+        def _norm_str(s):
+            if not s: return ""
+            return unicodedata.normalize('NFKD', str(s)).encode('ascii', 'ignore').decode('ascii').lower().strip()
 
-        if jogos_cat:
-            for j in jogos_cat:
-                if j.get("fase") == "Fase Classificatória":
-                    continue
+        norm_tm = _norm_str(m_time.get("clube", ""))
+        norm_tv = _norm_str(v_time.get("clube", ""))
+        
+        matching_games = []
+
+        if jogos_filtrados:
+            for j in jogos_filtrados:
                 j_chave = (j.get("chave") or "").upper()
                 if j_chave and j_chave != nome_chave.upper():
                     continue
                 
-                j_rodada = (j.get("rodada") or "").lower()
+                j_rodada = _norm_str(j.get("rodada") or "")
                 if time_tipo == "QF" and ("semi" in j_rodada or ("final" in j_rodada and "quarta" not in j_rodada)):
                     continue
                 if time_tipo == "SF" and ("quarta" in j_rodada or ("final" in j_rodada and "semi" not in j_rodada)):
@@ -714,32 +723,16 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
                 if time_tipo == "FINAL" and ("quarta" in j_rodada or "semi" in j_rodada):
                     continue
 
-                jm = j.get("mandante", "").strip().lower()
-                jv = j.get("visitante", "").strip().lower()
-                c1 = (tm in jm or jm in tm)
-                c2 = (tv in jv or jv in tv)
-                c3 = (tm in jv or jv in tm)
-                c4 = (tv in jm or jm in tv)
+                jm = _norm_str(j.get("mandante", ""))
+                jv = _norm_str(j.get("visitante", ""))
+                c1 = (norm_tm in jm or jm in norm_tm)
+                c2 = (norm_tv in jv or jv in norm_tv)
+                c3 = (norm_tm in jv or jv in norm_tm)
+                c4 = (norm_tv in jm or jm in norm_tv)
                 if (c1 and c2) or (c3 and c4):
-                    jogo_oficial = {
-                        "data": j.get("data"),
-                        "dia": j.get("dia"),
-                        "mes": j.get("mes"),
-                        "hora": j.get("hora"),
-                        "ginasio": j.get("ginasio"),
-                        "status": j.get("status"),
-                        "placar_mandante": j.get("placar_mandante"),
-                        "placar_visitante": j.get("placar_visitante"),
-                        "sumula_url": j.get("sumula_url"),
-                        "rodada": j.get("rodada"),
-                        "mandante_oficial": j.get("mandante"),
-                        "visitante_oficial": j.get("visitante"),
-                        # Campo de correção manual de prorrogação/pênaltis
-                        "vencedor_prorrogacao": j.get("vencedor_prorrogacao"),
-                        "motivo_prorrogacao": j.get("motivo_prorrogacao"),
-                    }
-                    break
+                    matching_games.append(j)
 
+        jogo_oficial = None
         vencedor = None
         perdedor = None
         placar_m = None
@@ -747,13 +740,88 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
         motivo = None
         status_conf = "A_DEFINIR"
 
+        if matching_games:
+            # Se for confronto com jogos de Ida e Volta (Torneio União)
+            if tipo_campeonato == "uniao" and len(matching_games) >= 2:
+                # Ordena jogos cronologicamente (mês e dia)
+                def _parse_data_sort(g):
+                    d_str = str(g.get("data", ""))
+                    m = re.search(r'(\d{1,2})/(\d{1,2})', d_str)
+                    if m:
+                        return (int(g.get("ano", 2026)), int(m.group(2)), int(m.group(1)))
+                    return (9999, 99, 99)
+                matching_games.sort(key=_parse_data_sort)
+                j_ida = matching_games[0]
+                j_volta = matching_games[1]
+                
+                status_ida = j_ida.get("status")
+                status_volta = j_volta.get("status")
+                ambos_encerrados = (status_ida == "Encerrado" and status_volta == "Encerrado")
+                status_conf = "ENCERRADO" if ambos_encerrados else "AGENDADO"
+                
+                jogo_oficial = {
+                    "data": j_ida.get("data"),
+                    "dia": j_ida.get("dia"),
+                    "mes": j_ida.get("mes"),
+                    "hora": j_ida.get("hora"),
+                    "ginasio": j_ida.get("ginasio"),
+                    "status": status_conf,
+                    "placar_mandante": j_ida.get("placar_mandante"),
+                    "placar_visitante": j_ida.get("placar_visitante"),
+                    "sumula_url": j_ida.get("sumula_url") or j_volta.get("sumula_url"),
+                    "rodada": j_ida.get("rodada"),
+                    "mandante_oficial": j_ida.get("mandante"),
+                    "visitante_oficial": j_ida.get("visitante"),
+                    "ida_e_volta": True,
+                    "jogo_ida": {
+                        "data": j_ida.get("data"),
+                        "hora": j_ida.get("hora"),
+                        "ginasio": j_ida.get("ginasio"),
+                        "mandante": j_ida.get("mandante"),
+                        "visitante": j_ida.get("visitante"),
+                        "placar_mandante": j_ida.get("placar_mandante"),
+                        "placar_visitante": j_ida.get("placar_visitante"),
+                        "status": j_ida.get("status"),
+                    },
+                    "jogo_volta": {
+                        "data": j_volta.get("data"),
+                        "hora": j_volta.get("hora"),
+                        "ginasio": j_volta.get("ginasio"),
+                        "mandante": j_volta.get("mandante"),
+                        "visitante": j_volta.get("visitante"),
+                        "placar_mandante": j_volta.get("placar_mandante"),
+                        "placar_visitante": j_volta.get("placar_visitante"),
+                        "status": j_volta.get("status"),
+                    },
+                }
+            else:
+                # Confronto de jogo único (Campeonato Paulista ou semifinal/final)
+                j = matching_games[0]
+                jogo_oficial = {
+                    "data": j.get("data"),
+                    "dia": j.get("dia"),
+                    "mes": j.get("mes"),
+                    "hora": j.get("hora"),
+                    "ginasio": j.get("ginasio"),
+                    "status": j.get("status"),
+                    "placar_mandante": j.get("placar_mandante"),
+                    "placar_visitante": j.get("placar_visitante"),
+                    "sumula_url": j.get("sumula_url"),
+                    "rodada": j.get("rodada"),
+                    "mandante_oficial": j.get("mandante"),
+                    "visitante_oficial": j.get("visitante"),
+                    "vencedor_prorrogacao": j.get("vencedor_prorrogacao"),
+                    "motivo_prorrogacao": j.get("motivo_prorrogacao"),
+                    "ida_e_volta": False,
+                }
+
         if jogo_oficial:
             if jogo_oficial.get("status") == "Encerrado":
                 status_conf = "ENCERRADO"
                 pm = jogo_oficial.get("placar_mandante")
                 pv = jogo_oficial.get("placar_visitante")
-                jm = (jogo_oficial.get("mandante_oficial") or "").strip().lower()
-                if tm in jm:
+                jm = _norm_str(jogo_oficial.get("mandante_oficial") or "")
+                if norm_tm in jm:
                     placar_m = pm
                     placar_v = pv
                 else:
@@ -770,23 +838,12 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
                         perdedor = m_time
                         motivo = "Vitória no tempo normal"
                     else:
-                        # Empate no tempo normal: verificar se há registro de vencedor
-                        # na prorrogação ou pênaltis (campo salvo manualmente pelo admin)
-                        venc_prorr = (jogo_oficial.get("vencedor_prorrogacao") or "").strip().lower()
-                        # Normaliza: remove acentos para comparacao robusta
-                        def _norm(s):
-                            return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('ascii').lower().strip()
+                        venc_prorr = _norm_str(jogo_oficial.get("vencedor_prorrogacao") or "")
                         if venc_prorr:
-                            # Compara o nome registrado com mandante/visitante (sem acentos)
-                            nome_m_norm = _norm(m_time.get("clube") or "")
-                            nome_v_norm = _norm(v_time.get("clube") or "")
-                            venc_norm = _norm(venc_prorr)
-                            # Verifica se o vencedor bate com o visitante
-                            match_v = venc_norm in nome_v_norm or nome_v_norm in venc_norm or \
-                                      any(w in nome_v_norm for w in venc_norm.split() if len(w) > 3)
-                            # Verifica se o vencedor bate com o mandante
-                            match_m = venc_norm in nome_m_norm or nome_m_norm in venc_norm or \
-                                      any(w in nome_m_norm for w in venc_norm.split() if len(w) > 3)
+                            nome_m_norm = _norm_str(m_time.get("clube") or "")
+                            nome_v_norm = _norm_str(v_time.get("clube") or "")
+                            match_v = venc_prorr in nome_v_norm or nome_v_norm in venc_prorr or any(w in nome_v_norm for w in venc_prorr.split() if len(w) > 3)
+                            match_m = venc_prorr in nome_m_norm or nome_m_norm in venc_prorr or any(w in nome_m_norm for w in venc_prorr.split() if len(w) > 3)
                             if match_v and not match_m:
                                 vencedor = v_time
                                 perdedor = m_time
@@ -796,12 +853,10 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
                                 perdedor = v_time
                                 motivo = "Vitória na prorrogação/pênaltis"
                             else:
-                                # Fallback: mandante avança
                                 vencedor = m_time
                                 perdedor = v_time
                                 motivo = "Empate — avança por melhor campanha (aguardando confirmação)"
                         else:
-                            # Sem informação de prorrogação: melhor posicionado avança
                             vencedor = m_time
                             perdedor = v_time
                             motivo = "Empate — avança por melhor campanha (aguardando confirmação)"
@@ -839,9 +894,9 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
         # pareamos os confrontos reais diretamente (respeitando o cruzamento olímpico/campanha da FPFS)
         semis_reais = []
         finais_reais = []
-        if jogos_cat:
-            semis_reais = [j for j in jogos_cat if j.get("fase") == "Semifinal" and (j.get("chave") or "").upper() == nome.upper()]
-            finais_reais = [j for j in jogos_cat if j.get("fase") == "Final" and (j.get("chave") or "").upper() == nome.upper()]
+        if jogos_filtrados:
+            semis_reais = [j for j in jogos_filtrados if j.get("fase") == "Semifinal" and (j.get("chave") or "").upper() == nome.upper()]
+            finais_reais = [j for j in jogos_filtrados if j.get("fase") == "Final" and (j.get("chave") or "").upper() == nome.upper()]
 
         def _achar_time_por_nome(nome_clube: Optional[str]) -> Optional[Dict[str, Any]]:
             if not nome_clube:
@@ -931,12 +986,13 @@ def _montar_estrutura_playoffs(ranking_lista: List[Dict[str, Any]], jogos_cat: L
 
 @router.get("/playoffs")
 def obter_playoffs_chaveamento(
-    temporada: int = Query(2026, description="Ano da temporada")
+    temporada: int = Query(2026, description="Ano da temporada"),
+    campeonato: str = Query("paulista", description="Campeonato: 'paulista' ou 'uniao'")
 ):
     """
-    Retorna o chaveamento completo das Chaves Ouro, Prata e Bronze
-    para o Torneio União (Geral) e para as 4 categorias (Sub-7 a Sub-10),
-    além dos confrontos da 23ª rodada (última da 1ª fase) para alimentação do simulador.
+    Retorna os chaveamentos separados para:
+    1. Campeonato Paulista: Mata-mata finalizado com campeões consagrados por categoria.
+    2. Torneio União: Mata-mata em andamento (Quartas de Final Ida e Volta).
     """
     ano = temporada if isinstance(temporada, int) else 2026
     dados = scraper_fpfs.obter_dados_completos(ano)
@@ -944,19 +1000,61 @@ def obter_playoffs_chaveamento(
     ranking_geral = dados.get("ranking_eficiencia", [])
     classificacao = dados.get("classificacao", {})
     jogos = dados.get("jogos", {})
-
-    # Chaveamento Torneio União (mantém o chaveamento original da 1ª fase como projeção limpa)
     ranking_fase1 = dados.get("ranking_fase1") or ranking_geral
-    playoffs_uniao = _montar_estrutura_playoffs(ranking_fase1, None)
 
-    # Chaveamento por Categoria com amarrações de jogos oficiais
-    playoffs_categorias = {}
+    # 1. Chaveamento do Campeonato Paulista (por Categoria, usando apenas jogos do paulista)
+    playoffs_paulista_categorias = {}
     for cat in ["Sub-7", "Sub-8", "Sub-9", "Sub-10"]:
         cat_lista = classificacao.get(cat, [])
         cat_jogos = jogos.get(cat, [])
-        playoffs_categorias[cat] = {
+        playoffs_paulista_categorias[cat] = {
             "ranking": cat_lista,
-            "chaves": _montar_estrutura_playoffs(cat_lista, cat_jogos),
+            "chaves": _montar_estrutura_playoffs(cat_lista, cat_jogos, tipo_campeonato="paulista"),
+        }
+
+    # 2. Chaveamento do Torneio União (baseado na estrutura oficial dos 24 clubes nas Chaves Ouro, Prata e Bronze)
+    ouro_uniao_nomes = ['CORINTHIANS', 'PALMEIRAS', 'SÃO PAULO FC', 'SANTOS FC', 'C.A. JUVENTUS', 'A.D. BATEBOLA', 'SÃO CAETANO / RSFC', 'LIGA SÃO CAETANO']
+    prata_uniao_nomes = ['MESC SÃO BERNARDO', 'PULO CAMPINAS', 'A.D. INDAIATUBA', 'C.A. YPIRANGA', 'LAUSANNE PAULISTA', 'FAE / OSASCO / AUDAX', 'PORTUGUESA', 'TAUBATÉ FUTSAL']
+    bronze_uniao_nomes = ['CAMISA 10', 'CT BOLA NO PÉ', 'UNIÃO RD', 'MAGNUS FUTSAL', 'OLÉ BRASIL SOCIETY', 'C.A. TABUCA JRS', 'HORTOLÂNDIA', 'AD OLIMPIK']
+
+    r_dict = {c['clube']: c for c in ranking_geral}
+    ranking_uniao = []
+    for i, n in enumerate(ouro_uniao_nomes + prata_uniao_nomes + bronze_uniao_nomes):
+        base = r_dict.get(n, {'clube': n})
+        ch = 'OURO' if i < 8 else ('PRATA' if i < 16 else 'BRONZE')
+        ranking_uniao.append({
+            **base,
+            'posicao': i + 1,
+            'chave': ch,
+            'clube': n,
+            'escudo_url': base.get('escudo_url', '/fpfs_shield.png')
+        })
+
+    # 2.1 Visão Geral (Consolidada)
+    playoffs_uniao_geral = _montar_estrutura_playoffs(ranking_uniao, None, tipo_campeonato="uniao")
+
+    # 2.2 Visão por Categoria no Torneio União (com os confrontos de ida e volta reais)
+    playoffs_uniao_categorias = {}
+    for cat in ["Sub-7", "Sub-8", "Sub-9", "Sub-10"]:
+        cat_jogos = jogos.get(cat, [])
+        playoffs_uniao_categorias[cat] = {
+            "ranking": ranking_uniao,
+            "chaves": _montar_estrutura_playoffs(ranking_uniao, cat_jogos, tipo_campeonato="uniao"),
+        }
+
+    camp_sel = campeonato.lower() if campeonato in ["paulista", "uniao"] else "paulista"
+    
+    if camp_sel == "uniao":
+        categorias_resp = playoffs_uniao_categorias
+        torneio_uniao_resp = {
+            "ranking": ranking_uniao,
+            "chaves": playoffs_uniao_geral,
+        }
+    else:
+        categorias_resp = playoffs_paulista_categorias
+        torneio_uniao_resp = {
+            "ranking": ranking_uniao,
+            "chaves": playoffs_uniao_geral,
         }
 
     # Confrontos da 23ª Rodada (Agregados para o Torneio União + detalhes por categoria)
@@ -1015,11 +1113,19 @@ def obter_playoffs_chaveamento(
     return {
         "temporada": ano,
         "atualizado_em": dados.get("atualizado_em"),
-        "torneio_uniao": {
-            "ranking": ranking_geral,
-            "chaves": playoffs_uniao,
+        "campeonato_selecionado": camp_sel,
+        "campeonatos_disponiveis": ["paulista", "uniao"],
+        "paulista": {
+            "categorias": playoffs_paulista_categorias,
         },
-        "categorias": playoffs_categorias,
+        "uniao": {
+            "ranking": ranking_fase1,
+            "chaves": playoffs_uniao_geral,
+            "categorias": playoffs_uniao_categorias,
+        },
+        # Campos retrocompatíveis para o frontend:
+        "torneio_uniao": torneio_uniao_resp,
+        "categorias": categorias_resp,
         "confrontos_rodada_final": confrontos_lista,
     }
 

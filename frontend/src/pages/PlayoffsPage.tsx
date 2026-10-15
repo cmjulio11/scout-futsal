@@ -27,12 +27,20 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
-const CATEGORIAS = [
+const CATEGORIAS_PAULISTA = [
   { id: 'Sub-7', nome: 'Sub-07', rotulo: 'Sub-07 (Iniciação)' },
   { id: 'Sub-8', nome: 'Sub-08', rotulo: 'Sub-08 (Iniciação)' },
   { id: 'Sub-9', nome: 'Sub-09', rotulo: 'Sub-09 (Iniciação)' },
   { id: 'Sub-10', nome: 'Sub-10', rotulo: 'Sub-10 (Iniciação)' },
   { id: 'uniao', nome: 'Torneio União (1ª Fase)', rotulo: 'Geral (4 Subs somados)' },
+];
+
+const CATEGORIAS_UNIAO = [
+  { id: 'Sub-7', nome: 'Sub-07', rotulo: 'Sub-07 (Mata-Mata União)' },
+  { id: 'Sub-8', nome: 'Sub-08', rotulo: 'Sub-08 (Mata-Mata União)' },
+  { id: 'Sub-9', nome: 'Sub-09', rotulo: 'Sub-09 (Mata-Mata União)' },
+  { id: 'Sub-10', nome: 'Sub-10', rotulo: 'Sub-10 (Mata-Mata União)' },
+  { id: 'uniao', nome: 'Chaves Consolidadas', rotulo: 'Ranking Geral 24 Equipes' },
 ];
 
 type ChaveTipo = 'ouro' | 'prata' | 'bronze';
@@ -46,6 +54,7 @@ export default function PlayoffsPage() {
   const { clubeAtivo } = useAuth();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PlayoffsResponse | null>(null);
+  const [campeonatoAtivo, setCampeonatoAtivo] = useState<'paulista' | 'uniao'>('paulista');
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>('Sub-7');
   const [chaveAtiva, setChaveAtiva] = useState<ChaveTipo>('ouro');
 
@@ -58,10 +67,10 @@ export default function PlayoffsPage() {
   const [vencedoresSemis, setVencedoresSemis] = useState<{ [sfId: string]: PlayoffTime }>({});
   const [campeaoChave, setCampeaoChave] = useState<{ [chave: string]: PlayoffTime }>({});
 
-  const carregarDados = async () => {
+  const carregarDados = async (camp: 'paulista' | 'uniao' = campeonatoAtivo) => {
     try {
       setLoading(true);
-      const resp = await campeonatosService.obterPlayoffs(2026);
+      const resp = await campeonatosService.obterPlayoffs(2026, camp);
       setData(resp);
     } catch (err) {
       console.error('Erro ao carregar playoffs:', err);
@@ -72,8 +81,8 @@ export default function PlayoffsPage() {
   };
 
   useEffect(() => {
-    carregarDados();
-  }, []);
+    carregarDados(campeonatoAtivo);
+  }, [campeonatoAtivo]);
 
   // Recálculo do ranking dinâmico caso haja simulações ativas
   const { rankingDinamico, chavesDinamicas, totalSimulados } = useMemo(() => {
@@ -86,13 +95,15 @@ export default function PlayoffsPage() {
     // Se NÃO houver simulações ativas da 23ª rodada, usar a estrutura oficial completa do backend!
     if (totalSim === 0) {
       if (categoriaAtiva === 'uniao') {
+        const uniaoObj = data.uniao || data.torneio_uniao;
         return {
-          rankingDinamico: data.torneio_uniao.ranking,
-          chavesDinamicas: data.torneio_uniao.chaves,
+          rankingDinamico: uniaoObj?.ranking || [],
+          chavesDinamicas: uniaoObj?.chaves || null,
           totalSimulados: 0,
         };
       } else {
-        const catData = data.categorias[categoriaAtiva];
+        const raizCat = campeonatoAtivo === 'uniao' ? data.uniao?.categorias : data.paulista?.categorias;
+        const catData = raizCat?.[categoriaAtiva] || data.categorias?.[categoriaAtiva];
         return {
           rankingDinamico: catData ? catData.ranking : [],
           chavesDinamicas: catData ? catData.chaves : null,
@@ -273,7 +284,7 @@ export default function PlayoffsPage() {
     if (!clubeAtivo || !rankingDinamico.length) return null;
 
     const item = rankingDinamico.find(
-      (c) =>
+      (c: any) =>
         c.clube.trim().toLowerCase() === clubeAtivo.trim().toLowerCase() ||
         c.clube.trim().toLowerCase().includes(clubeAtivo.trim().toLowerCase()) ||
         clubeAtivo.trim().toLowerCase().includes(c.clube.trim().toLowerCase())
@@ -292,7 +303,7 @@ export default function PlayoffsPage() {
     if (chaveObj) {
       confrontoQF =
         chaveObj.quartas.find(
-          (qf) =>
+          (qf: any) =>
             qf.time_mandante?.clube.toLowerCase() === item.clube.toLowerCase() ||
             qf.time_visitante?.clube.toLowerCase() === item.clube.toLowerCase()
         ) || null;
@@ -305,7 +316,7 @@ export default function PlayoffsPage() {
           if (confrontoQF.vencedor?.clube.toLowerCase() === item.clube.toLowerCase()) {
             statusClube = 'CLASSIFICADO_SEMIS';
             const semiId = confrontoQF.semifinal_id;
-            const semiConfronto = chaveObj.semifinais?.find((s) => s.id.endsWith(semiId || ''));
+            const semiConfronto = chaveObj.semifinais?.find((s: any) => s.id.endsWith(semiId || ''));
             if (semiConfronto) {
               proximoAdversarioSemi =
                 semiConfronto.time_mandante?.clube.toLowerCase() === item.clube.toLowerCase()
@@ -389,46 +400,57 @@ export default function PlayoffsPage() {
 
   const chaveAtual = chavesDinamicas ? chavesDinamicas[chaveAtiva] : null;
 
+  const semi1Oficial = chaveAtual?.semifinais?.[0];
+  const semi2Oficial = chaveAtual?.semifinais?.[1];
+  const finalOficial = chaveAtual?.final;
+
   // Semifinais derivadas com fallback inteligente para os classificados oficiais do backend
   const semi1Time1 =
+    (totalSimulados === 0 && semi1Oficial?.time_mandante) ||
     vencedoresQuartas[`${chaveAtiva}_qf1`] ||
     chaveAtual?.quartas[0]?.vencedor ||
-    chaveAtual?.semifinais?.[0]?.time_mandante ||
+    semi1Oficial?.time_mandante ||
     chaveAtual?.quartas[0]?.time_mandante;
 
   const semi1Time2 =
+    (totalSimulados === 0 && semi1Oficial?.time_visitante) ||
     vencedoresQuartas[`${chaveAtiva}_qf4`] ||
     chaveAtual?.quartas[3]?.vencedor ||
-    chaveAtual?.semifinais?.[0]?.time_visitante ||
+    semi1Oficial?.time_visitante ||
     chaveAtual?.quartas[3]?.time_mandante;
 
   const semi2Time1 =
+    (totalSimulados === 0 && semi2Oficial?.time_mandante) ||
     vencedoresQuartas[`${chaveAtiva}_qf2`] ||
     chaveAtual?.quartas[1]?.vencedor ||
-    chaveAtual?.semifinais?.[1]?.time_mandante ||
+    semi2Oficial?.time_mandante ||
     chaveAtual?.quartas[1]?.time_mandante;
 
   const semi2Time2 =
+    (totalSimulados === 0 && semi2Oficial?.time_visitante) ||
     vencedoresQuartas[`${chaveAtiva}_qf3`] ||
     chaveAtual?.quartas[2]?.vencedor ||
-    chaveAtual?.semifinais?.[1]?.time_visitante ||
+    semi2Oficial?.time_visitante ||
     chaveAtual?.quartas[2]?.time_mandante;
 
   const finalTime1 =
+    (totalSimulados === 0 && finalOficial?.time_mandante) ||
     vencedoresSemis[`${chaveAtiva}_sf1`] ||
-    chaveAtual?.semifinais?.[0]?.vencedor ||
-    chaveAtual?.final?.time_mandante ||
+    semi1Oficial?.vencedor ||
+    finalOficial?.time_mandante ||
     semi1Time1;
 
   const finalTime2 =
+    (totalSimulados === 0 && finalOficial?.time_visitante) ||
     vencedoresSemis[`${chaveAtiva}_sf2`] ||
-    chaveAtual?.semifinais?.[1]?.vencedor ||
-    chaveAtual?.final?.time_visitante ||
+    semi2Oficial?.vencedor ||
+    finalOficial?.time_visitante ||
     semi2Time1;
 
   const campeao =
+    (totalSimulados === 0 && (finalOficial?.vencedor || chaveAtual?.resumo?.campeao)) ||
     campeaoChave[chaveAtiva] ||
-    chaveAtual?.final?.vencedor ||
+    finalOficial?.vencedor ||
     chaveAtual?.resumo?.campeao ||
     null;
 
@@ -506,6 +528,110 @@ export default function PlayoffsPage() {
                 <span>{temSimulacaoOuAvanco ? 'Resetar Simulação' : 'Oficial FPFS'}</span>
               </button>
             </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* SELETOR DE COMPETIÇÃO: CAMPEONATO PAULISTA x TORNEIO UNIÃO */}
+          {/* ========================================================================= */}
+          <div className="bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-2xl flex flex-col sm:flex-row gap-2 shadow-xl">
+            <button
+              type="button"
+              onClick={() => {
+                if (campeonatoAtivo !== 'paulista') {
+                  setCampeonatoAtivo('paulista');
+                  setSimulacoes({});
+                  setVencedoresQuartas({});
+                  setVencedoresSemis({});
+                  setCampeaoChave({});
+                }
+              }}
+              className={`flex-1 flex items-center justify-between p-3 sm:p-4 rounded-xl border transition cursor-pointer text-left ${
+                campeonatoAtivo === 'paulista'
+                  ? 'bg-gradient-to-r from-amber-500/20 to-blue-500/10 border-amber-500/50 shadow-md ring-1 ring-amber-500/30'
+                  : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-950 text-slate-400'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-2.5 rounded-xl border ${
+                    campeonatoAtivo === 'paulista'
+                      ? 'bg-amber-500/20 border-amber-500/30 text-amber-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-400'
+                  }`}
+                >
+                  <Trophy className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs sm:text-sm font-black text-white">
+                      Campeonato Estadual Paulista
+                    </span>
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Finalizado
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Quartas, Semifinais e Finais concluídas • Campeões Consagrados
+                  </p>
+                </div>
+              </div>
+              {campeonatoAtivo === 'paulista' && (
+                <div className="hidden md:flex items-center gap-1 text-xs font-bold text-amber-400">
+                  <Check className="w-4 h-4" />
+                </div>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (campeonatoAtivo !== 'uniao') {
+                  setCampeonatoAtivo('uniao');
+                  if (categoriaAtiva === 'uniao') {
+                    setCategoriaAtiva('Sub-7');
+                  }
+                  setSimulacoes({});
+                  setVencedoresQuartas({});
+                  setVencedoresSemis({});
+                  setCampeaoChave({});
+                }
+              }}
+              className={`flex-1 flex items-center justify-between p-3 sm:p-4 rounded-xl border transition cursor-pointer text-left ${
+                campeonatoAtivo === 'uniao'
+                  ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/10 border-blue-500/50 shadow-md ring-1 ring-blue-500/30'
+                  : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-950 text-slate-400'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-2.5 rounded-xl border ${
+                    campeonatoAtivo === 'uniao'
+                      ? 'bg-blue-500/20 border-blue-500/30 text-blue-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-400'
+                  }`}
+                >
+                  <Swords className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs sm:text-sm font-black text-white">
+                      Torneio União (Mata-Mata)
+                    </span>
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                      Quartas • Ida e Volta
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Jogos de Ida e Volta a partir de 17/10 • Chaves Ouro, Prata e Bronze
+                  </p>
+                </div>
+              </div>
+              {campeonatoAtivo === 'uniao' && (
+                <div className="hidden md:flex items-center gap-1 text-xs font-bold text-blue-400">
+                  <Check className="w-4 h-4" />
+                </div>
+              )}
+            </button>
           </div>
 
           {/* ========================================================================= */}
@@ -812,17 +938,19 @@ export default function PlayoffsPage() {
           )}
 
           {/* ========================================================================= */}
-          {/* SELETOR DE ESCOPO: TORNEIO UNIÃO OU SUB-7 A SUB-10 */}
+          {/* SELETOR DE ESCOPO: CATEGORIAS (SUB-7 A SUB-10 OU GERAL) */}
           {/* ========================================================================= */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {CATEGORIAS.map((cat) => (
+            {(campeonatoAtivo === 'paulista' ? CATEGORIAS_PAULISTA : CATEGORIAS_UNIAO).map((cat) => (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setCategoriaAtiva(cat.id)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
                   categoriaAtiva === cat.id
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                    ? campeonatoAtivo === 'uniao'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                      : 'bg-amber-600 text-white shadow-md shadow-amber-500/20'
                     : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
                 }`}
               >
@@ -836,12 +964,18 @@ export default function PlayoffsPage() {
             <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-500/30 flex items-start gap-3 shadow-lg">
               <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
               <div className="text-xs text-slate-300 space-y-1">
-                <p className="font-bold text-white text-sm">Chaveamento do Torneio União (1ª Fase)</p>
+                <p className="font-bold text-white text-sm">
+                  {campeonatoAtivo === 'paulista'
+                    ? 'Classificação Consolidada da 1ª Fase (Torneio União)'
+                    : 'Chaves Consolidadas do Torneio União (24 Clubes)'}
+                </p>
                 <p>
-                  No regulamento oficial da FPFS (Art. 12 a 14), o Torneio União é apurado exclusivamente na 1ª Fase (fase classificatória de pontos corridos). No Mata-Mata, a Federação não realiza confrontos unificados dos 4 subs juntos: as partidas e chaveamentos oficiais ocorrem individualmente nas categorias <strong>Sub-7, Sub-8, Sub-9 e Sub-10</strong>.
+                  {campeonatoAtivo === 'paulista'
+                    ? 'No Campeonato Paulista, os pontos das 4 categorias de Iniciação definiram os 24 classificados para as Chaves Ouro (1º ao 8º), Prata (9º ao 16º) e Bronze (17º ao 24º). O mata-mata foi disputado individualmente em cada categoria (Sub-7 a Sub-10).'
+                    : 'No Torneio União, as 24 equipes foram distribuídas em Ouro, Prata e Bronze conforme a classificação geral da 1ª fase. Os confrontos de mata-mata de Quartas de Final são disputados em jogos de IDA e VOLTA em cada categoria individualmente (Sub-7 a Sub-10).'}
                 </p>
                 <p className="text-blue-300 font-semibold">
-                  Selecione uma das abas acima (Sub-07 a Sub-10) para ver os jogos oficiais reais, placares e as equipes já classificadas para as Semifinais!
+                  Clique nas abas Sub-07, Sub-08, Sub-09 ou Sub-10 para ver os confrontos, mandos, datas, horários e ginásios!
                 </p>
               </div>
             </div>
@@ -986,7 +1120,7 @@ export default function PlayoffsPage() {
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                     Classificados para as Semis:
                   </span>
-                  {chaveAtual.resumo.classificados_semis.map((timeNome) => (
+                  {chaveAtual.resumo.classificados_semis.map((timeNome: string) => (
                     <span
                       key={timeNome}
                       className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold flex items-center gap-1.5"
@@ -1060,7 +1194,7 @@ export default function PlayoffsPage() {
                     <span className="text-[10px] font-bold text-slate-500">8 Equipes</span>
                   </div>
 
-                  {chaveAtual.quartas.map((qf) => {
+                  {chaveAtual.quartas.map((qf: any) => {
                     const vencedorSimulado = vencedoresQuartas[qf.id];
                     const isEncerrado = qf.status_confronto === 'ENCERRADO';
                     const vencedorFinal = isEncerrado ? qf.vencedor : (vencedorSimulado || null);
@@ -1215,29 +1349,117 @@ export default function PlayoffsPage() {
 
                         {/* Informação Oficial do Jogo Agendado / Realizado */}
                         {qf.jogo_oficial && (
-                          <div className="mt-2 pt-2 border-t border-slate-800/80 flex flex-col gap-1 text-[10px] text-slate-400">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-1 font-bold text-blue-400">
-                                <span>📅</span> {qf.jogo_oficial.data} {qf.jogo_oficial.hora ? `às ${qf.jogo_oficial.hora}` : ''}
-                              </span>
-                              <span className="truncate max-w-[150px] text-[9px] text-slate-400 font-medium" title={qf.jogo_oficial.ginasio}>
-                                📍 {qf.jogo_oficial.ginasio.replace(/GIN[ÁA]SIO/i, '').trim()}
-                              </span>
-                            </div>
-                            {qf.motivo_vitoria && qf.motivo_vitoria !== 'Vitória no tempo normal' && (
-                              <div className="text-[9px] text-amber-400 font-medium">
-                                ⚖️ Decisão: {qf.motivo_vitoria}
+                          <div className="mt-2.5 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400">
+                            {qf.jogo_oficial.ida_e_volta ? (
+                              <div className="space-y-2 bg-slate-950/70 p-2.5 rounded-xl border border-blue-500/20">
+                                <div className="flex items-center justify-between text-[9px] font-black uppercase text-blue-400">
+                                  <span>⚔️ Confronto Ida e Volta</span>
+                                  <span className="text-slate-500">Mata-Mata União</span>
+                                </div>
+
+                                {/* Jogo 1 (Ida) */}
+                                {qf.jogo_oficial.jogo_ida && (
+                                  <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800 space-y-1">
+                                    <div className="flex items-center justify-between text-slate-400">
+                                      <span className="font-bold text-slate-200 text-[10px]">
+                                        Jogo 1 (Ida):
+                                      </span>
+                                      <span className="text-blue-400 font-bold flex items-center gap-1 text-[10px]">
+                                        <Calendar className="w-3 h-3" />
+                                        {qf.jogo_oficial.jogo_ida.data}{' '}
+                                        {qf.jogo_oficial.jogo_ida.hora
+                                          ? `às ${qf.jogo_oficial.jogo_ida.hora}`
+                                          : ''}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-slate-300">
+                                      <span className="truncate max-w-[170px] text-[10px]">
+                                        {qf.jogo_oficial.jogo_ida.mandante} x{' '}
+                                        {qf.jogo_oficial.jogo_ida.visitante}
+                                      </span>
+                                      <span className="font-mono font-bold text-white bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-[10px]">
+                                        {qf.jogo_oficial.jogo_ida.placar_mandante !== null &&
+                                        qf.jogo_oficial.jogo_ida.placar_mandante !== undefined
+                                          ? `${qf.jogo_oficial.jogo_ida.placar_mandante} x ${qf.jogo_oficial.jogo_ida.placar_visitante}`
+                                          : 'A Jogar'}
+                                      </span>
+                                    </div>
+                                    <div
+                                      className="text-[9px] text-slate-500 truncate"
+                                      title={qf.jogo_oficial.jogo_ida.ginasio}
+                                    >
+                                      📍 {qf.jogo_oficial.jogo_ida.ginasio}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Jogo 2 (Volta - Decisão) */}
+                                {qf.jogo_oficial.jogo_volta && (
+                                  <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800 space-y-1">
+                                    <div className="flex items-center justify-between text-slate-400">
+                                      <span className="font-bold text-amber-300 text-[10px]">
+                                        Jogo 2 (Volta - Decisão):
+                                      </span>
+                                      <span className="text-blue-400 font-bold flex items-center gap-1 text-[10px]">
+                                        <Calendar className="w-3 h-3" />
+                                        {qf.jogo_oficial.jogo_volta.data}{' '}
+                                        {qf.jogo_oficial.jogo_volta.hora
+                                          ? `às ${qf.jogo_oficial.jogo_volta.hora}`
+                                          : ''}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-slate-300">
+                                      <span className="truncate max-w-[170px] text-[10px]">
+                                        {qf.jogo_oficial.jogo_volta.mandante} x{' '}
+                                        {qf.jogo_oficial.jogo_volta.visitante}
+                                      </span>
+                                      <span className="font-mono font-bold text-white bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-[10px]">
+                                        {qf.jogo_oficial.jogo_volta.placar_mandante !== null &&
+                                        qf.jogo_oficial.jogo_volta.placar_mandante !== undefined
+                                          ? `${qf.jogo_oficial.jogo_volta.placar_mandante} x ${qf.jogo_oficial.jogo_volta.placar_visitante}`
+                                          : 'A Jogar'}
+                                      </span>
+                                    </div>
+                                    <div
+                                      className="text-[9px] text-slate-500 truncate"
+                                      title={qf.jogo_oficial.jogo_volta.ginasio}
+                                    >
+                                      📍 {qf.jogo_oficial.jogo_volta.ginasio}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                            {qf.jogo_oficial.sumula_url && (
-                              <a
-                                href={qf.jogo_oficial.sumula_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[9px] text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 self-start"
-                              >
-                                <ExternalLink className="w-2.5 h-2.5" /> Súmula Oficial FPFS
-                              </a>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="flex items-center gap-1 font-bold text-blue-400">
+                                    <span>📅</span> {qf.jogo_oficial.data}{' '}
+                                    {qf.jogo_oficial.hora ? `às ${qf.jogo_oficial.hora}` : ''}
+                                  </span>
+                                  <span
+                                    className="truncate max-w-[150px] text-[9px] text-slate-400 font-medium"
+                                    title={qf.jogo_oficial.ginasio}
+                                  >
+                                    📍 {qf.jogo_oficial.ginasio.replace(/GIN[ÁA]SIO/i, '').trim()}
+                                  </span>
+                                </div>
+                                {qf.motivo_vitoria &&
+                                  qf.motivo_vitoria !== 'Vitória no tempo normal' && (
+                                    <div className="text-[9px] text-amber-400 font-medium">
+                                      ⚖️ Decisão: {qf.motivo_vitoria}
+                                    </div>
+                                  )}
+                                {qf.jogo_oficial.sumula_url && (
+                                  <a
+                                    href={qf.jogo_oficial.sumula_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[9px] text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 self-start"
+                                  >
+                                    <ExternalLink className="w-2.5 h-2.5" /> Súmula Oficial FPFS
+                                  </a>
+                                )}
+                              </div>
                             )}
                           </div>
                         )}
@@ -1258,183 +1480,355 @@ export default function PlayoffsPage() {
                     <span className="text-[10px] font-bold text-slate-500">4 Equipes</span>
                   </div>
 
-                  {/* Semifinal 1 (QF1 x QF4) */}
-                  <div className="p-3.5 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-sm space-y-2">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400">
-                      <span className="font-bold uppercase text-amber-400">Semifinal 1</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
-                        {semi1Time1 && semi1Time2 ? 'Confronto Definido' : 'Vencedor QF1 x QF4'}
-                      </span>
-                    </div>
+                  {/* Semifinal 1 */}
+                  {(() => {
+                    const isEncerrado = semi1Oficial?.status_confronto === 'ENCERRADO';
+                    const vencedorFinal = isEncerrado
+                      ? semi1Oficial?.vencedor
+                      : (vencedoresSemis[`${chaveAtiva}_sf1`] || null);
+                    const isM1Vencedor =
+                      vencedorFinal?.clube.toLowerCase() === semi1Time1?.clube.toLowerCase();
+                    const isV1Vencedor =
+                      vencedorFinal?.clube.toLowerCase() === semi1Time2?.clube.toLowerCase();
 
-                    {semi1Time1 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf1`, semi1Time1)}
-                        className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer ${
-                          vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time1.clube
-                            ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black'
-                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <img
-                            src={semi1Time1.escudo_url || '/fpfs_shield.png'}
-                            alt={semi1Time1.clube}
-                            className="w-6 h-6 object-contain shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.src = '/fpfs_shield.png';
-                            }}
-                          />
-                          <span className="text-xs font-bold truncate">{semi1Time1.clube}</span>
+                    return (
+                      <div className="p-3.5 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-sm space-y-2">
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span className="font-bold uppercase text-amber-400">Semifinal 1</span>
+                          <div className="flex items-center gap-1.5">
+                            {isEncerrado ? (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                <Check className="w-2.5 h-2.5" /> Encerrado
+                              </span>
+                            ) : semi1Oficial?.status_confronto === 'AGENDADO' ? (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                                📅 Agendado
+                              </span>
+                            ) : (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                                {semi1Time1 && semi1Time2 ? 'Definido' : 'Aguardando QF'}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          {semi1Time1.posicao && (
-                            <span className="text-[10px] text-slate-500">{semi1Time1.posicao}º</span>
-                          )}
-                          {vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time1.clube && (
-                            <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                          )}
-                        </div>
-                      </button>
-                    ) : (
-                      <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
-                        Aguardando Vencedor Quartas 1
+
+                        {/* Time 1 da Semi 1 */}
+                        {semi1Time1 ? (
+                          <button
+                            type="button"
+                            disabled={isEncerrado}
+                            onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf1`, semi1Time1)}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl transition ${
+                              isEncerrado ? 'cursor-default' : 'cursor-pointer'
+                            } ${
+                              isM1Vencedor
+                                ? 'bg-emerald-950/40 border border-emerald-500/60 text-white font-black shadow-sm'
+                                : isEncerrado
+                                ? 'bg-slate-950/40 text-slate-500 border border-transparent opacity-60'
+                                : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={semi1Time1.escudo_url || '/fpfs_shield.png'}
+                                alt={semi1Time1.clube}
+                                className="w-6 h-6 object-contain shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/fpfs_shield.png';
+                                }}
+                              />
+                              <span className="text-xs font-bold truncate">{semi1Time1.clube}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isEncerrado && semi1Oficial?.placar_mandante !== null && (
+                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono font-black text-sm text-white">
+                                  {semi1Oficial?.placar_mandante}
+                                </span>
+                              )}
+                              {isM1Vencedor ? (
+                                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Na Final
+                                </span>
+                              ) : isEncerrado ? (
+                                <span className="text-[10px] text-slate-600">Eliminado</span>
+                              ) : (
+                                semi1Time1.posicao && (
+                                  <span className="text-[10px] text-slate-500">{semi1Time1.posicao}º</span>
+                                )
+                              )}
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
+                            Aguardando Vencedor Quartas 1
+                          </div>
+                        )}
+
+                        {/* Time 2 da Semi 1 */}
+                        {semi1Time2 ? (
+                          <button
+                            type="button"
+                            disabled={isEncerrado}
+                            onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf1`, semi1Time2)}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl transition ${
+                              isEncerrado ? 'cursor-default' : 'cursor-pointer'
+                            } ${
+                              isV1Vencedor
+                                ? 'bg-emerald-950/40 border border-emerald-500/60 text-white font-black shadow-sm'
+                                : isEncerrado
+                                ? 'bg-slate-950/40 text-slate-500 border border-transparent opacity-60'
+                                : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={semi1Time2.escudo_url || '/fpfs_shield.png'}
+                                alt={semi1Time2.clube}
+                                className="w-6 h-6 object-contain shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/fpfs_shield.png';
+                                }}
+                              />
+                              <span className="text-xs font-bold truncate">{semi1Time2.clube}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isEncerrado && semi1Oficial?.placar_visitante !== null && (
+                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono font-black text-sm text-white">
+                                  {semi1Oficial?.placar_visitante}
+                                </span>
+                              )}
+                              {isV1Vencedor ? (
+                                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Na Final
+                                </span>
+                              ) : isEncerrado ? (
+                                <span className="text-[10px] text-slate-600">Eliminado</span>
+                              ) : (
+                                semi1Time2.posicao && (
+                                  <span className="text-[10px] text-slate-500">{semi1Time2.posicao}º</span>
+                                )
+                              )}
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
+                            Aguardando Vencedor Quartas 4
+                          </div>
+                        )}
+
+                        {/* Detalhes do jogo oficial de semifinal */}
+                        {semi1Oficial?.jogo_oficial ? (
+                          <div className="mt-1 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-blue-400">
+                                📅 {semi1Oficial.jogo_oficial.data} {semi1Oficial.jogo_oficial.hora ? `às ${semi1Oficial.jogo_oficial.hora}` : ''}
+                              </span>
+                              <span className="truncate max-w-[150px] text-[9px] text-slate-400">
+                                📍 {semi1Oficial.jogo_oficial.ginasio.replace(/GIN[ÁA]SIO/i, '').trim()}
+                              </span>
+                            </div>
+                            {semi1Oficial.motivo_vitoria && semi1Oficial.motivo_vitoria !== 'Vitória no tempo normal' && (
+                              <div className="text-[9px] text-amber-400 font-medium">
+                                ⚖️ Decisão: {semi1Oficial.motivo_vitoria}
+                              </div>
+                            )}
+                            {semi1Oficial.jogo_oficial.sumula_url && (
+                              <a
+                                href={semi1Oficial.jogo_oficial.sumula_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 self-start"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" /> Súmula Oficial FPFS
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mt-1 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
+                            <span className="text-slate-500">Cruza para a Grande Final</span>
+                            <span className="text-amber-400/80 font-bold">
+                              {semi1Time1 && semi1Time2 ? 'Aguardando data FPFS' : 'Cruzamento Olímpico'}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    );
+                  })()}
 
-                    {semi1Time2 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf1`, semi1Time2)}
-                        className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer ${
-                          vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time2.clube
-                            ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black'
-                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <img
-                            src={semi1Time2.escudo_url || '/fpfs_shield.png'}
-                            alt={semi1Time2.clube}
-                            className="w-6 h-6 object-contain shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.src = '/fpfs_shield.png';
-                            }}
-                          />
-                          <span className="text-xs font-bold truncate">{semi1Time2.clube}</span>
+                  {/* Semifinal 2 */}
+                  {(() => {
+                    const isEncerrado = semi2Oficial?.status_confronto === 'ENCERRADO';
+                    const vencedorFinal = isEncerrado
+                      ? semi2Oficial?.vencedor
+                      : (vencedoresSemis[`${chaveAtiva}_sf2`] || null);
+                    const isM2Vencedor =
+                      vencedorFinal?.clube.toLowerCase() === semi2Time1?.clube.toLowerCase();
+                    const isV2Vencedor =
+                      vencedorFinal?.clube.toLowerCase() === semi2Time2?.clube.toLowerCase();
+
+                    return (
+                      <div className="p-3.5 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-sm space-y-2">
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span className="font-bold uppercase text-amber-400">Semifinal 2</span>
+                          <div className="flex items-center gap-1.5">
+                            {isEncerrado ? (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                <Check className="w-2.5 h-2.5" /> Encerrado
+                              </span>
+                            ) : semi2Oficial?.status_confronto === 'AGENDADO' ? (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                                📅 Agendado
+                              </span>
+                            ) : (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                                {semi2Time1 && semi2Time2 ? 'Definido' : 'Aguardando QF'}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          {semi1Time2.posicao && (
-                            <span className="text-[10px] text-slate-500">{semi1Time2.posicao}º</span>
-                          )}
-                          {vencedoresSemis[`${chaveAtiva}_sf1`]?.clube === semi1Time2.clube && (
-                            <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                          )}
-                        </div>
-                      </button>
-                    ) : (
-                      <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
-                        Aguardando Vencedor Quartas 4
+
+                        {/* Time 1 da Semi 2 */}
+                        {semi2Time1 ? (
+                          <button
+                            type="button"
+                            disabled={isEncerrado}
+                            onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf2`, semi2Time1)}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl transition ${
+                              isEncerrado ? 'cursor-default' : 'cursor-pointer'
+                            } ${
+                              isM2Vencedor
+                                ? 'bg-emerald-950/40 border border-emerald-500/60 text-white font-black shadow-sm'
+                                : isEncerrado
+                                ? 'bg-slate-950/40 text-slate-500 border border-transparent opacity-60'
+                                : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={semi2Time1.escudo_url || '/fpfs_shield.png'}
+                                alt={semi2Time1.clube}
+                                className="w-6 h-6 object-contain shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/fpfs_shield.png';
+                                }}
+                              />
+                              <span className="text-xs font-bold truncate">{semi2Time1.clube}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isEncerrado && semi2Oficial?.placar_mandante !== null && (
+                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono font-black text-sm text-white">
+                                  {semi2Oficial?.placar_mandante}
+                                </span>
+                              )}
+                              {isM2Vencedor ? (
+                                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Na Final
+                                </span>
+                              ) : isEncerrado ? (
+                                <span className="text-[10px] text-slate-600">Eliminado</span>
+                              ) : (
+                                semi2Time1.posicao && (
+                                  <span className="text-[10px] text-slate-500">{semi2Time1.posicao}º</span>
+                                )
+                              )}
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
+                            Aguardando Vencedor Quartas 2
+                          </div>
+                        )}
+
+                        {/* Time 2 da Semi 2 */}
+                        {semi2Time2 ? (
+                          <button
+                            type="button"
+                            disabled={isEncerrado}
+                            onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf2`, semi2Time2)}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl transition ${
+                              isEncerrado ? 'cursor-default' : 'cursor-pointer'
+                            } ${
+                              isV2Vencedor
+                                ? 'bg-emerald-950/40 border border-emerald-500/60 text-white font-black shadow-sm'
+                                : isEncerrado
+                                ? 'bg-slate-950/40 text-slate-500 border border-transparent opacity-60'
+                                : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={semi2Time2.escudo_url || '/fpfs_shield.png'}
+                                alt={semi2Time2.clube}
+                                className="w-6 h-6 object-contain shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/fpfs_shield.png';
+                                }}
+                              />
+                              <span className="text-xs font-bold truncate">{semi2Time2.clube}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isEncerrado && semi2Oficial?.placar_visitante !== null && (
+                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono font-black text-sm text-white">
+                                  {semi2Oficial?.placar_visitante}
+                                </span>
+                              )}
+                              {isV2Vencedor ? (
+                                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Na Final
+                                </span>
+                              ) : isEncerrado ? (
+                                <span className="text-[10px] text-slate-600">Eliminado</span>
+                              ) : (
+                                semi2Time2.posicao && (
+                                  <span className="text-[10px] text-slate-500">{semi2Time2.posicao}º</span>
+                                )
+                              )}
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
+                            Aguardando Vencedor Quartas 3
+                          </div>
+                        )}
+
+                        {/* Detalhes do jogo oficial da Semi 2 */}
+                        {semi2Oficial?.jogo_oficial ? (
+                          <div className="mt-1 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-blue-400">
+                                📅 {semi2Oficial.jogo_oficial.data} {semi2Oficial.jogo_oficial.hora ? `às ${semi2Oficial.jogo_oficial.hora}` : ''}
+                              </span>
+                              <span className="truncate max-w-[150px] text-[9px] text-slate-400">
+                                📍 {semi2Oficial.jogo_oficial.ginasio.replace(/GIN[ÁA]SIO/i, '').trim()}
+                              </span>
+                            </div>
+                            {semi2Oficial.motivo_vitoria && semi2Oficial.motivo_vitoria !== 'Vitória no tempo normal' && (
+                              <div className="text-[9px] text-amber-400 font-medium">
+                                ⚖️ Decisão: {semi2Oficial.motivo_vitoria}
+                              </div>
+                            )}
+                            {semi2Oficial.jogo_oficial.sumula_url && (
+                              <a
+                                href={semi2Oficial.jogo_oficial.sumula_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 self-start"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" /> Súmula Oficial FPFS
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mt-1 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
+                            <span className="text-slate-500">Cruza para a Grande Final</span>
+                            <span className="text-amber-400/80 font-bold">
+                              {semi2Time1 && semi2Time2 ? 'Aguardando data FPFS' : 'Cruzamento Olímpico'}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-
-                    <div className="mt-1 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
-                      <span className="text-slate-500">Cruza para a Grande Final</span>
-                      <span className="text-amber-400/80 font-bold">
-                        {semi1Time1 && semi1Time2 ? 'Aguardando data FPFS' : 'Cruzamento Olímpico'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Semifinal 2 (QF2 x QF3) */}
-                  <div className="p-3.5 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-sm space-y-2">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400">
-                      <span className="font-bold uppercase text-amber-400">Semifinal 2</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
-                        {semi2Time1 && semi2Time2 ? 'Confronto Definido' : 'Vencedor QF2 x QF3'}
-                      </span>
-                    </div>
-
-                    {semi2Time1 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf2`, semi2Time1)}
-                        className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer ${
-                          vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time1.clube
-                            ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black'
-                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <img
-                            src={semi2Time1.escudo_url || '/fpfs_shield.png'}
-                            alt={semi2Time1.clube}
-                            className="w-6 h-6 object-contain shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.src = '/fpfs_shield.png';
-                            }}
-                          />
-                          <span className="text-xs font-bold truncate">{semi2Time1.clube}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {semi2Time1.posicao && (
-                            <span className="text-[10px] text-slate-500">{semi2Time1.posicao}º</span>
-                          )}
-                          {vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time1.clube && (
-                            <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                          )}
-                        </div>
-                      </button>
-                    ) : (
-                      <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
-                        Aguardando Vencedor Quartas 2
-                      </div>
-                    )}
-
-                    {semi2Time2 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleEscolherVencedorSemi(`${chaveAtiva}_sf2`, semi2Time2)}
-                        className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer ${
-                          vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time2.clube
-                            ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black'
-                            : 'bg-slate-950/70 hover:bg-slate-950 text-slate-300 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <img
-                            src={semi2Time2.escudo_url || '/fpfs_shield.png'}
-                            alt={semi2Time2.clube}
-                            className="w-6 h-6 object-contain shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.src = '/fpfs_shield.png';
-                            }}
-                          />
-                          <span className="text-xs font-bold truncate">{semi2Time2.clube}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {semi2Time2.posicao && (
-                            <span className="text-[10px] text-slate-500">{semi2Time2.posicao}º</span>
-                          )}
-                          {vencedoresSemis[`${chaveAtiva}_sf2`]?.clube === semi2Time2.clube && (
-                            <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                          )}
-                        </div>
-                      </button>
-                    ) : (
-                      <div className="p-2 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-[11px] text-slate-500 italic">
-                        Aguardando Vencedor Quartas 3
-                      </div>
-                    )}
-
-                    <div className="mt-1 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
-                      <span className="text-slate-500">Cruza para a Grande Final</span>
-                      <span className="text-amber-400/80 font-bold">
-                        {semi2Time1 && semi2Time2 ? 'Aguardando data FPFS' : 'Cruzamento Olímpico'}
-                      </span>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 {/* ------------------------------------------------------------- */}
@@ -1450,87 +1844,188 @@ export default function PlayoffsPage() {
                   </div>
 
                   {/* Card da Final */}
-                  <div className="p-4 rounded-2xl border border-amber-500/40 bg-gradient-to-b from-slate-900 to-slate-950 shadow-xl space-y-3">
-                    <div className="flex items-center justify-between text-[11px] text-amber-400 font-black">
-                      <span>DECISÃO DO TÍTULO</span>
-                      <span>Chave {chaveAtiva.toUpperCase()}</span>
-                    </div>
+                  {(() => {
+                    const isEncerrado = finalOficial?.status_confronto === 'ENCERRADO';
+                    const campeaoDefinitivo = isEncerrado
+                      ? (finalOficial?.vencedor || chaveAtual?.resumo?.campeao)
+                      : (campeaoChave[chaveAtiva] || null);
+                    const isMFinalCampeao =
+                      campeaoDefinitivo?.clube.toLowerCase() === finalTime1?.clube.toLowerCase();
+                    const isVFinalCampeao =
+                      campeaoDefinitivo?.clube.toLowerCase() === finalTime2?.clube.toLowerCase();
 
-                    {finalTime1 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleEscolherCampeao(chaveAtiva, finalTime1)}
-                        className={`w-full flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer ${
-                          campeao?.clube === finalTime1.clube
-                            ? 'bg-amber-500/25 border border-amber-500 text-amber-300 font-black shadow-lg'
-                            : 'bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <img
-                            src={finalTime1.escudo_url || '/fpfs_shield.png'}
-                            alt={finalTime1.clube}
-                            className="w-7 h-7 object-contain shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.src = '/fpfs_shield.png';
-                            }}
-                          />
-                          <span className="text-sm font-black truncate">{finalTime1.clube}</span>
+                    return (
+                      <div className="p-4 rounded-2xl border border-amber-500/40 bg-gradient-to-b from-slate-900 to-slate-950 shadow-xl space-y-3">
+                        <div className="flex items-center justify-between text-[11px] text-amber-400 font-black">
+                          <span className="flex items-center gap-1.5">
+                            <Trophy className="w-3.5 h-3.5" /> DECISÃO DO TÍTULO
+                          </span>
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
+                            Chave {chaveAtiva.toUpperCase()}
+                          </span>
                         </div>
-                        {campeao?.clube === finalTime1.clube && (
-                          <span className="text-sm font-black text-amber-400">🏆 Campeão!</span>
+
+                        {/* Finalista 1 */}
+                        {finalTime1 ? (
+                          <button
+                            type="button"
+                            disabled={isEncerrado}
+                            onClick={() => handleEscolherCampeao(chaveAtiva, finalTime1)}
+                            className={`w-full flex items-center justify-between p-2.5 rounded-xl transition ${
+                              isEncerrado ? 'cursor-default' : 'cursor-pointer'
+                            } ${
+                              isMFinalCampeao
+                                ? 'bg-amber-500/25 border border-amber-500 text-amber-300 font-black shadow-lg ring-1 ring-amber-500/40'
+                                : isEncerrado
+                                ? 'bg-slate-950/40 text-slate-500 border border-transparent opacity-70'
+                                : 'bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img
+                                src={finalTime1.escudo_url || '/fpfs_shield.png'}
+                                alt={finalTime1.clube}
+                                className="w-7 h-7 object-contain shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/fpfs_shield.png';
+                                }}
+                              />
+                              <span className="text-sm font-black truncate">{finalTime1.clube}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isEncerrado && finalOficial?.placar_mandante !== null && (
+                                <span className="px-2.5 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono font-black text-base text-white">
+                                  {finalOficial?.placar_mandante}
+                                </span>
+                              )}
+                              {isMFinalCampeao ? (
+                                <span className="text-xs font-black text-amber-400 flex items-center gap-1">
+                                  🏆 Campeão!
+                                </span>
+                              ) : isEncerrado ? (
+                                <span className="text-[10px] text-slate-500 font-semibold">🥈 Vice</span>
+                              ) : null}
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="p-2.5 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-xs text-slate-500 italic">
+                            Aguardando Finalista 1
+                          </div>
                         )}
-                      </button>
-                    ) : (
-                      <div className="p-2.5 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-xs text-slate-500 italic">
-                        Aguardando Finalista 1
-                      </div>
-                    )}
 
-                    <div className="text-center text-[10px] font-bold text-slate-500">VS</div>
-
-                    {finalTime2 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleEscolherCampeao(chaveAtiva, finalTime2)}
-                        className={`w-full flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer ${
-                          campeao?.clube === finalTime2.clube
-                            ? 'bg-amber-500/25 border border-amber-500 text-amber-300 font-black shadow-lg'
-                            : 'bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <img
-                            src={finalTime2.escudo_url || '/fpfs_shield.png'}
-                            alt={finalTime2.clube}
-                            className="w-7 h-7 object-contain shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.src = '/fpfs_shield.png';
-                            }}
-                          />
-                          <span className="text-sm font-black truncate">{finalTime2.clube}</span>
+                        <div className="text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                          {isEncerrado ? 'Resultado da Final' : 'VS'}
                         </div>
-                        {campeao?.clube === finalTime2.clube && (
-                          <span className="text-sm font-black text-amber-400">🏆 Campeão!</span>
+
+                        {/* Finalista 2 */}
+                        {finalTime2 ? (
+                          <button
+                            type="button"
+                            disabled={isEncerrado}
+                            onClick={() => handleEscolherCampeao(chaveAtiva, finalTime2)}
+                            className={`w-full flex items-center justify-between p-2.5 rounded-xl transition ${
+                              isEncerrado ? 'cursor-default' : 'cursor-pointer'
+                            } ${
+                              isVFinalCampeao
+                                ? 'bg-amber-500/25 border border-amber-500 text-amber-300 font-black shadow-lg ring-1 ring-amber-500/40'
+                                : isEncerrado
+                                ? 'bg-slate-950/40 text-slate-500 border border-transparent opacity-70'
+                                : 'bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img
+                                src={finalTime2.escudo_url || '/fpfs_shield.png'}
+                                alt={finalTime2.clube}
+                                className="w-7 h-7 object-contain shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/fpfs_shield.png';
+                                }}
+                              />
+                              <span className="text-sm font-black truncate">{finalTime2.clube}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isEncerrado && finalOficial?.placar_visitante !== null && (
+                                <span className="px-2.5 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono font-black text-base text-white">
+                                  {finalOficial?.placar_visitante}
+                                </span>
+                              )}
+                              {isVFinalCampeao ? (
+                                <span className="text-xs font-black text-amber-400 flex items-center gap-1">
+                                  🏆 Campeão!
+                                </span>
+                              ) : isEncerrado ? (
+                                <span className="text-[10px] text-slate-500 font-semibold">🥈 Vice</span>
+                              ) : null}
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="p-2.5 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-xs text-slate-500 italic">
+                            Aguardando Finalista 2
+                          </div>
                         )}
-                      </button>
-                    ) : (
-                      <div className="p-2.5 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center text-xs text-slate-500 italic">
-                        Aguardando Finalista 2
+
+                        {/* Detalhes do jogo oficial da Final */}
+                        {finalOficial?.jogo_oficial && (
+                          <div className="mt-2 pt-2.5 border-t border-slate-800/80 text-[10px] text-slate-400 flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-amber-400 flex items-center gap-1">
+                                📅 {finalOficial.jogo_oficial.data}{' '}
+                                {finalOficial.jogo_oficial.hora ? `às ${finalOficial.jogo_oficial.hora}` : ''}
+                              </span>
+                              <span className="truncate max-w-[150px] text-[9px] text-slate-400">
+                                📍 {finalOficial.jogo_oficial.ginasio.replace(/GIN[ÁA]SIO/i, '').trim()}
+                              </span>
+                            </div>
+                            {finalOficial.motivo_vitoria && finalOficial.motivo_vitoria !== 'Vitória no tempo normal' && (
+                              <div className="text-[9px] text-amber-400 font-medium">
+                                ⚖️ Decisão: {finalOficial.motivo_vitoria}
+                              </div>
+                            )}
+                            {finalOficial.jogo_oficial.sumula_url && (
+                              <a
+                                href={finalOficial.jogo_oficial.sumula_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 self-start"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" /> Súmula Oficial FPFS da Decisão
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
 
                   {/* Pódio / Campeão Consagrado */}
                   {campeao && (
-                    <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/20 to-amber-500/10 border border-amber-500/40 text-center space-y-2 shadow-xl animate-in zoom-in-95 duration-200">
-                      <span className="text-2xl">🏆</span>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">
-                        Campeão Projetado • Chave {chaveAtiva.toUpperCase()}
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/25 to-amber-500/15 border border-amber-500/50 text-center space-y-2.5 shadow-2xl animate-in zoom-in-95 duration-200">
+                      <div className="flex justify-center">
+                        <div className="w-16 h-16 rounded-2xl bg-slate-950 border border-amber-500/40 p-2 flex items-center justify-center shadow-inner">
+                          <img
+                            src={campeao.escudo_url || '/fpfs_shield.png'}
+                            alt={campeao.clube}
+                            className="w-full h-full object-contain drop-shadow"
+                            onError={(e) => {
+                              e.currentTarget.src = '/fpfs_shield.png';
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center justify-center gap-1">
+                        <span>🏆</span>
+                        <span>
+                          {finalOficial?.status_confronto === 'ENCERRADO'
+                            ? `Campeão Oficial • Chave ${chaveAtiva.toUpperCase()}`
+                            : `Campeão Projetado • Chave ${chaveAtiva.toUpperCase()}`}
+                        </span>
                       </p>
-                      <h4 className="text-lg font-black text-white">{campeao.clube}</h4>
-                      <p className="text-xs text-slate-400">
-                        Classificado em {campeao.posicao}º lugar na 1ª fase
+                      <h4 className="text-xl font-black text-white">{campeao.clube}</h4>
+                      <p className="text-xs text-slate-300">
+                        {finalOficial?.status_confronto === 'ENCERRADO'
+                          ? `Consagrado Campeão no placar de ${finalOficial?.placar_mandante} x ${finalOficial?.placar_visitante} na Grande Final!`
+                          : `Classificado em ${campeao.posicao}º lugar na 1ª fase`}
                       </p>
                     </div>
                   )}

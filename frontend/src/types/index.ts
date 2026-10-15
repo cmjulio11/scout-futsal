@@ -429,10 +429,31 @@ export interface PlayoffJogoOficial {
   status: string;
   placar_mandante?: number | null;
   placar_visitante?: number | null;
+  vencedor_prorrogacao?: string | null;
+  motivo_prorrogacao?: string | null;
   sumula_url?: string | null;
-  rodada?: string;
-  mandante_oficial?: string;
-  visitante_oficial?: string;
+  rodada?: string | null;
+  ida_e_volta?: boolean;
+  jogo_ida?: {
+    data?: string;
+    hora?: string;
+    ginasio?: string;
+    mandante?: string;
+    visitante?: string;
+    placar_mandante?: number | null;
+    placar_visitante?: number | null;
+    status?: string;
+  };
+  jogo_volta?: {
+    data?: string;
+    hora?: string;
+    ginasio?: string;
+    mandante?: string;
+    visitante?: string;
+    placar_mandante?: number | null;
+    placar_visitante?: number | null;
+    status?: string;
+  };
 }
 
 export interface PlayoffConfronto {
@@ -510,6 +531,38 @@ export interface ConfrontoRodadaFinal {
 export interface PlayoffsResponse {
   temporada: number;
   atualizado_em?: string;
+  campeonato_selecionado?: string;
+  campeonatos_disponiveis?: string[];
+  paulista?: {
+    categorias: {
+      [categoria: string]: {
+        ranking: ClassificacaoItem[];
+        chaves: {
+          ouro: PlayoffChave;
+          prata: PlayoffChave;
+          bronze: PlayoffChave;
+        };
+      };
+    };
+  };
+  uniao?: {
+    ranking: RankingEficienciaItem[];
+    chaves: {
+      ouro: PlayoffChave;
+      prata: PlayoffChave;
+      bronze: PlayoffChave;
+    };
+    categorias?: {
+      [categoria: string]: {
+        ranking: ClassificacaoItem[];
+        chaves: {
+          ouro: PlayoffChave;
+          prata: PlayoffChave;
+          bronze: PlayoffChave;
+        };
+      };
+    };
+  };
   torneio_uniao: {
     ranking: RankingEficienciaItem[];
     chaves: {
