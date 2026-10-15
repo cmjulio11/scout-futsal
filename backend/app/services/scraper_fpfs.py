@@ -981,13 +981,52 @@ def obter_ficha_atleta(
         gols2 = item.get("gols2", 0)
         
         partida_oficial = None
-        for j in jogos_cat:
-            if j.get("placar_mandante") == gols1 and j.get("placar_visitante") == gols2:
-                jm = j.get("mandante", "").upper()
-                jv = j.get("visitante", "").upper()
-                if clube_atleta_nome.upper() in jm or clube_atleta_nome.upper() in jv:
+        raw_id_jogo = str(item.get("id_jogo", ""))
+        dt_raw = str(item.get("dt_jogo", ""))
+        dt_comparar = ""
+        if "-" in dt_raw:
+            p = dt_raw.split("-")
+            if len(p) == 3:
+                dt_comparar = f"{p[2]}/{p[1]}"
+
+        # 1. Matching preciso por id_jogo oficial registrado na súmula da FPFS
+        if raw_id_jogo:
+            for j in jogos_cat:
+                s_url = j.get("sumula_url", "")
+                if f"id_jogo={raw_id_jogo}" in s_url or f"id={raw_id_jogo}" in s_url:
                     partida_oficial = j
                     break
+
+        # 2. Matching por data e clube do atleta
+        if not partida_oficial and dt_comparar:
+            for j in jogos_cat:
+                if j.get("data") == dt_comparar:
+                    jm = j.get("mandante", "").upper()
+                    jv = j.get("visitante", "").upper()
+                    if clube_atleta_nome.upper() in jm or clube_atleta_nome.upper() in jv:
+                        partida_oficial = j
+                        break
+
+        # 3. Matching por rodada e clube do atleta
+        if not partida_oficial and rodada_num:
+            for j in jogos_cat:
+                r_j = str(j.get("rodada", ""))
+                if f"{rodada_num}ª" in r_j or f"{rodada_num} " in r_j:
+                    jm = j.get("mandante", "").upper()
+                    jv = j.get("visitante", "").upper()
+                    if clube_atleta_nome.upper() in jm or clube_atleta_nome.upper() in jv:
+                        partida_oficial = j
+                        break
+
+        # 4. Fallback por placar e clube
+        if not partida_oficial:
+            for j in jogos_cat:
+                if j.get("placar_mandante") == gols1 and j.get("placar_visitante") == gols2:
+                    jm = j.get("mandante", "").upper()
+                    jv = j.get("visitante", "").upper()
+                    if clube_atleta_nome.upper() in jm or clube_atleta_nome.upper() in jv:
+                        partida_oficial = j
+                        break
 
         if partida_oficial:
             mandante_nome = partida_oficial["mandante"]
@@ -1071,7 +1110,28 @@ def obter_ficha_atleta(
             "ginasio": ginasio,
         })
 
-    historico_jogos.reverse()
+    def _ordem_rodada(j: Dict[str, Any]) -> tuple:
+        r_str = str(j.get("rodada", "")).upper()
+        if "FINAL" in r_str and "SEMI" not in r_str and "QUART" not in r_str:
+            peso_fase = 100
+        elif "SEMI" in r_str:
+            peso_fase = 90
+        elif "QUART" in r_str:
+            peso_fase = 80
+        else:
+            m = re.search(r'(\d+)', r_str)
+            peso_fase = int(m.group(1)) if m else 0
+
+        d_str = str(j.get("data", ""))
+        dia, mes = 0, 0
+        if "/" in d_str:
+            partes = d_str.split("/")
+            if len(partes) >= 2 and partes[0].isdigit() and partes[1].isdigit():
+                dia, mes = int(partes[0]), int(partes[1])
+
+        return (peso_fase, mes, dia)
+
+    historico_jogos.sort(key=_ordem_rodada)
     maiores_vitimas = sorted(vitimas_map.values(), key=lambda x: (x["gols"], x["jogos"]), reverse=True)
     
     tabela_cat = dados.get("classificacao", {}).get(categoria, [])

@@ -458,7 +458,7 @@ export default function AtletaModal({
                   <span className="text-xs font-extrabold text-white flex items-center gap-1.5 uppercase tracking-wider">
                     <Calendar className="w-4 h-4 text-blue-400" /> Histórico de Partidas em que Marcou ({jogos.length})
                   </span>
-                  <span className="text-[10px] text-slate-400">Mais recentes primeiro</span>
+                  <span className="text-[10px] text-slate-400">Ordem cronológica das rodadas</span>
                 </div>
 
                 <div className="space-y-2">
